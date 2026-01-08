@@ -1,0 +1,13 @@
+# SC Signature Scanner
+# Star Citizen signature detection and identification tool
+
+## Requirements
+pytesseract>=0.3.10
+Pillow>=10.0.0
+watchdog>=3.0.0
+pystray>=0.19.0
+keyboard>=0.13.5
+
+## Optional (for better OCR)
+# easyocr>=1.7.0
+# opencv-python>=4.8.0
