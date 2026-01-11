@@ -1,10 +1,56 @@
 {
   "metadata": {
-    "version": "4.0",
-    "source": "Star Citizen Data.p4k extraction",
+    "version": "4.5",
+    "sc_version": "4.5",
+    "source": "Star Citizen Data.p4k extraction + in-game survey 2025",
     "ship_count": 252,
     "description": "Ship radar cross-sections and minable rock signatures",
-    "includes_salvage": true
+    "includes_salvage": true,
+    "verified": "2025 mining survey",
+    "mining_categories": {
+      "space_deposits": {
+        "aka": "Asteroids",
+        "location": "Space (asteroid belts, Aaron Halo)",
+        "mining_method": "Ship mining only (Prospector, MOLE)",
+        "composition": "Mixed minerals"
+      },
+      "surface_deposits": {
+        "aka": "Surface rocks",
+        "location": "Planetary surfaces",
+        "mining_method": "Ship mining only (Prospector, MOLE)",
+        "composition": "Mixed minerals"
+      },
+      "ground_deposits": {
+        "aka": "Gem deposits",
+        "location": "Planetary surfaces and caves",
+        "mining_method": "Ground vehicle (ROC) or FPS/hand mining",
+        "composition": "100% single mineral per cluster",
+        "variants": {
+          "small": {
+            "base_signature": 120,
+            "primary_method": "FPS/Hand mining",
+            "note": "Can be mined by vehicles with experienced miners"
+          },
+          "large": {
+            "base_signature": 620,
+            "primary_method": "ROC/Vehicle mining",
+            "note": "Can be mined by multiple FPS miners collaborating"
+          }
+        },
+        "cluster_rules": [
+          "Each cluster spawns only ONE mineral type at 100% purity",
+          "A mineral spawns as either small OR large deposits in a cluster, never both"
+        ]
+      },
+      "subsurface_deposits": {
+        "aka": "Sub-surface deposits",
+        "location": "Below planetary surface",
+        "mining_method": "Sub-surface extractors (not yet implemented)",
+        "status": "NOT IN GAME",
+        "expected": "Late 2026-2027",
+        "first_ship": "Consolidated Outland Pioneer"
+      }
+    }
   },
   "ships": [
     {"name": "RSI_Bengal", "manufacturer": "RSI", "cross_section_m": {"x": 33.1, "y": 15.8, "z": 72.0}, "max_dimension_m": 72.0},
@@ -122,7 +168,8 @@
     {"name": "CNOU_HoverQuad", "manufacturer": "CNOU", "cross_section_m": {"x": 0.2, "y": 0.15, "z": 0.25}, "max_dimension_m": 0.25}
   ],
   "minables": {
-    "asteroid_types": {
+    "space_deposits": {
+      "_description": "Asteroids - Ship mining only (Prospector, MOLE). Mixed mineral composition.",
       "I": 1660,
       "C": 1700,
       "S": 1720,
@@ -132,6 +179,7 @@
       "E": 1900
     },
     "surface_deposits": {
+      "_description": "Surface rocks - Ship mining only (Prospector, MOLE). Mixed mineral composition.",
       "Shale": 1730,
       "Felsic": 1770,
       "Obsidian": 1790,
@@ -141,41 +189,43 @@
       "Granite": 1920,
       "Igneous": 1950
     },
-    "fps_mining": {
-      "Hadanite": 1920,
-      "Aphorite": 1920,
-      "Dolivine": 1920,
-      "Janalite": 1920,
-      "Carinite": 1920,
-      "Saldynium": 1920,
-      "Jaclium": 1920,
-      "Sadaryx": 1920
+    "ground_deposits": {
+      "_description": "Ground deposits (surfaces and caves) - ROC or FPS mining. 100% single mineral per cluster.",
+      "small": {
+        "_base_signature": 120,
+        "_method": "FPS/Hand mining (can be mined by vehicles with skill)"
+      },
+      "large": {
+        "_base_signature": 620,
+        "_method": "ROC/Vehicle mining (can be mined by multiple FPS miners)"
+      },
+      "minerals": ["Hadanite", "Dolivine", "Aphorite", "Beradom", "Glacosite", "Feynmaline", "Jaclium"]
     },
-    "ground_vehicle": {
-      "Carinite": 620,
-      "Beradom": 620,
-      "Feynmaline": 620,
-      "Glacosite": 620
+    "subsurface_deposits": {
+      "_description": "Sub-surface deposits - Not yet implemented. Requires sub-surface extractors.",
+      "_status": "NOT IN GAME",
+      "_expected": "Late 2026-2027 (Consolidated Outland Pioneer)"
     }
   },
   "signature_lookup": {
-    "620": "Ground Vehicle Mining (Carinite, Beradom, Feynmaline, Glacosite)",
-    "1660": "I-type Asteroid (Ice)",
+    "120": "Small Ground Deposit (FPS mining) - 100% single mineral",
+    "620": "Large Ground Deposit (ROC mining) - 100% single mineral",
+    "1660": "I-type Asteroid",
     "1700": "C-type Asteroid",
     "1720": "S-type Asteroid",
-    "1730": "Shale Deposit",
+    "1730": "Shale Surface Deposit",
     "1750": "P-type Asteroid",
-    "1770": "Felsic Deposit",
-    "1790": "Obsidian Deposit",
-    "1800": "Atacamite Deposit",
-    "1820": "Quartzite Deposit",
-    "1840": "Gneiss Deposit",
+    "1770": "Felsic Surface Deposit",
+    "1790": "Obsidian Surface Deposit",
+    "1800": "Atacamite Surface Deposit",
+    "1820": "Quartzite Surface Deposit",
+    "1840": "Gneiss Surface Deposit",
     "1850": "M-type Asteroid",
     "1870": "Q-type Asteroid",
     "1900": "E-type Asteroid",
-    "1920": "Granite / FPS Gems",
-    "1950": "Igneous Deposit",
-    "2000": "1 Salvage Panel"
+    "1920": "Granite Surface Deposit",
+    "1950": "Igneous Surface Deposit",
+    "2000": "Salvage Panel"
   },
   "salvage": {
     "description": "Salvageable hull panels on wrecks. Each panel = 2000 signature.",

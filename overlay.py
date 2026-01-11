@@ -160,13 +160,19 @@ class OverlayPopup:
         elif category == 'deposit' or 'Deposit' in match.get('name', ''):
             color = self.MINING_COLOR
             icon = "⛏️"
+        elif match_type == 'fps_mining' or category == 'fps_mining':
+            color = "#a371f7"  # Purple for hand mining
+            icon = "💎"
+        elif match_type == 'ground_vehicle' or category == 'ground_vehicle':
+            color = "#a371f7"  # Purple for vehicle mining
+            icon = "💎"
         else:
             color = self.FG_COLOR
             icon = "📡"
         
         # Header row: Icon + Name + Value
         header_row = tk.Frame(container, bg=self.BG_COLOR)
-        header_row.pack(fill=tk.X, pady=(0, int(5 * self.scale)))
+        header_row.pack(fill=tk.X, pady=(0, int(3 * self.scale)))
         
         name = match.get('name', 'Unknown')
         name_label = tk.Label(
@@ -191,9 +197,58 @@ class OverlayPopup:
             )
             value_label.pack(side=tk.RIGHT)
         
-        # Composition table
+        # Mining method indicator
+        if category == 'asteroid':
+            mining_method = "🚀 Ship Mining (mixed composition)"
+            method_color = self.SHIP_COLOR
+        elif category == 'deposit':
+            mining_method = "🚀 Ship Mining (mixed composition)"
+            method_color = self.SHIP_COLOR
+        elif match_type == 'fps_mining' or category == 'fps_mining':
+            mining_method = "💎 Hand Mining (100% single mineral)"
+            method_color = "#a371f7"  # Purple
+        elif match_type == 'ground_vehicle' or category == 'ground_vehicle':
+            mining_method = "🚗 ROC Mining (100% single mineral)"
+            method_color = "#a371f7"  # Purple
+        else:
+            mining_method = None
+            method_color = self.MUTED_COLOR
+        
+        if mining_method:
+            method_row = tk.Frame(container, bg=self.BG_COLOR)
+            method_row.pack(fill=tk.X, pady=(0, int(5 * self.scale)))
+            
+            method_label = tk.Label(
+                method_row,
+                text=mining_method,
+                font=self._scaled_font("Segoe UI", 9),
+                fg=method_color,
+                bg=self.BG_COLOR,
+                anchor=tk.W
+            )
+            method_label.pack(side=tk.LEFT)
+        
+        # Composition table (only for mixed composition deposits)
         composition = match.get('composition', [])
-        if composition:
+        single_mineral = match.get('single_mineral', False)
+        
+        if single_mineral:
+            # Single mineral deposit - show simple info
+            mineral_name = match.get('mineral_name', 'Unknown')
+            info_row = tk.Frame(container, bg=self.BG_LIGHT)
+            info_row.pack(fill=tk.X, pady=(int(5 * self.scale), 0))
+            
+            tk.Label(
+                info_row,
+                text=f"Contains 100% {mineral_name}",
+                font=self._scaled_font("Consolas", 10),
+                fg="#3fb950",
+                bg=self.BG_LIGHT,
+                padx=10,
+                pady=5
+            ).pack(anchor=tk.W)
+            
+        elif composition:
             # Table header
             table_header = tk.Frame(container, bg=self.BG_LIGHT)
             table_header.pack(fill=tk.X, pady=(int(5 * self.scale), 0))
@@ -644,40 +699,3 @@ class PositionAdjuster:
         self.window.grab_set()
         self.parent.wait_window(self.window)
 
-
-# Test
-if __name__ == "__main__":
-    # Create a parent window for testing
-    test_root = tk.Tk()
-    test_root.title("Test Parent")
-    test_root.geometry("300x100")
-    
-    saved_position = [None]  # Use list to allow modification in nested function
-    
-    def on_position_saved(x, y):
-        print(f"Position saved: ({x}, {y})")
-        saved_position[0] = (x, y)
-        
-        # Test overlay at that position
-        overlay = OverlayPopup(position=(x, y), duration=5)
-        
-        test_matches = [
-            {'type': 'ship', 'name': 'AEGS Gladius', 'confidence': 0.95, 'facing': 'front'},
-            {'type': 'asteroid', 'name': 'C-type Asteroid', 'count': 5},
-            {'type': 'salvage', 'name': 'Salvage Panels', 'panels': 4},
-        ]
-        
-        overlay.show(8500, test_matches)
-    
-    def open_adjuster():
-        adjuster = PositionAdjuster(
-            parent=test_root,
-            current_position=saved_position[0],
-            on_save=on_position_saved
-        )
-        adjuster.run()
-    
-    btn = tk.Button(test_root, text="Open Position Adjuster", command=open_adjuster)
-    btn.pack(pady=20)
-    
-    test_root.mainloop()

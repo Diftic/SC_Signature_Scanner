@@ -21,6 +21,9 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any, Tuple
 import sys
 
+# Path utilities (must be first for frozen exe support)
+import paths
+
 # Local imports
 from scanner import SignatureScanner
 from overlay import OverlayPopup, PositionAdjuster
@@ -29,6 +32,7 @@ from config import Config
 from theme import RegolithTheme, WarningBanner, StatusIndicator
 import pricing
 import version_checker
+import region_selector
 
 
 class SCSignatureScannerApp:
@@ -44,9 +48,9 @@ class SCSignatureScannerApp:
         # Apply theme
         RegolithTheme.apply(self.root)
         
-        # Center window on screen
-        window_width = 520
-        window_height = 1000
+        # Center window on screen - wider layout
+        window_width = 850
+        window_height = 700
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         x = (screen_width - window_width) // 2
@@ -92,7 +96,7 @@ class SCSignatureScannerApp:
         main_container.pack(fill=tk.BOTH, expand=True)
         
         # === Header ===
-        header = tk.Frame(main_container, bg=colors['bg_dark'], pady=15)
+        header = tk.Frame(main_container, bg=colors['bg_dark'], pady=12)
         header.pack(fill=tk.X)
         
         # Title with icon
@@ -103,7 +107,7 @@ class SCSignatureScannerApp:
             title_frame,
             text="📡",
             bg=colors['bg_dark'],
-            font=('Segoe UI', 24)
+            font=('Segoe UI', 22)
         )
         title_icon.pack(side=tk.LEFT, padx=(0, 10))
         
@@ -115,7 +119,7 @@ class SCSignatureScannerApp:
             text="SIGNATURE SCANNER",
             bg=colors['bg_dark'],
             fg=colors['accent_primary'],
-            font=('Segoe UI', 18, 'bold')
+            font=('Segoe UI', 16, 'bold')
         )
         title.pack(anchor=tk.W)
         
@@ -130,11 +134,11 @@ class SCSignatureScannerApp:
         
         # Accent line
         accent_line = tk.Frame(header, bg=colors['accent_primary'], height=2)
-        accent_line.pack(fill=tk.X, pady=(15, 0))
+        accent_line.pack(fill=tk.X, pady=(12, 0))
         
         # Warning banner
         warning = WarningBanner(main_container, "Requires Windowed or Borderless Windowed mode")
-        warning.pack(fill=tk.X, padx=15, pady=15)
+        warning.pack(fill=tk.X, padx=15, pady=10)
         
         # === Notebook (Tabs) ===
         notebook = ttk.Notebook(main_container)
@@ -144,12 +148,12 @@ class SCSignatureScannerApp:
         scanner_tab = tk.Frame(notebook, bg=colors['bg_main'])
         notebook.add(scanner_tab, text="  Scanner  ")
         
-        scanner_content = tk.Frame(scanner_tab, bg=colors['bg_main'], padx=5, pady=15)
+        scanner_content = tk.Frame(scanner_tab, bg=colors['bg_main'], padx=5, pady=10)
         scanner_content.pack(fill=tk.BOTH, expand=True)
         
         # Screenshot folder section
         folder_section = tk.Frame(scanner_content, bg=colors['bg_main'])
-        folder_section.pack(fill=tk.X, pady=(0, 15))
+        folder_section.pack(fill=tk.X, pady=(0, 10))
         
         folder_label = tk.Label(
             folder_section,
@@ -158,7 +162,7 @@ class SCSignatureScannerApp:
             fg=colors['accent_primary'],
             font=fonts['subheading']
         )
-        folder_label.pack(anchor=tk.W, pady=(0, 8))
+        folder_label.pack(anchor=tk.W, pady=(0, 5))
         
         folder_input = tk.Frame(folder_section, bg=colors['border'])
         folder_input.pack(fill=tk.X)
@@ -176,7 +180,7 @@ class SCSignatureScannerApp:
             relief='flat',
             insertbackground=colors['accent_primary']
         )
-        folder_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=8, pady=8)
+        folder_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=8, pady=6)
         
         browse_btn = tk.Button(
             folder_inner,
@@ -186,26 +190,22 @@ class SCSignatureScannerApp:
             font=fonts['body'],
             relief='flat',
             padx=15,
-            pady=4,
+            pady=3,
             cursor='hand2',
             command=self._browse_folder
         )
         browse_btn.pack(side=tk.RIGHT, padx=(0, 4), pady=4)
         
-        # Status section
-        status_section = tk.Frame(scanner_content, bg=colors['bg_light'])
-        status_section.pack(fill=tk.X, pady=(0, 15))
+        # Status and controls row
+        control_row = tk.Frame(scanner_content, bg=colors['bg_main'])
+        control_row.pack(fill=tk.X, pady=(0, 10))
         
-        # Add border effect
-        status_border = tk.Frame(scanner_content, bg=colors['border'])
-        status_border.pack(fill=tk.X, pady=(0, 15), before=status_section)
-        status_section.pack_forget()
+        # Status section (left side)
+        status_border = tk.Frame(control_row, bg=colors['border'])
+        status_border.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
         
-        status_inner = tk.Frame(status_border, bg=colors['bg_light'], padx=15, pady=12)
+        status_inner = tk.Frame(status_border, bg=colors['bg_light'], padx=12, pady=8)
         status_inner.pack(fill=tk.X, padx=1, pady=1)
-        
-        status_header = tk.Frame(status_inner, bg=colors['bg_light'])
-        status_header.pack(fill=tk.X)
         
         self.status_indicator = StatusIndicator(status_inner)
         self.status_indicator.configure(bg=colors['bg_light'])
@@ -222,33 +222,33 @@ class SCSignatureScannerApp:
         )
         self.stats_label.pack(side=tk.RIGHT)
         
-        # Control buttons
-        btn_frame = tk.Frame(scanner_content, bg=colors['bg_main'])
-        btn_frame.pack(fill=tk.X, pady=(0, 15))
+        # Control buttons (right side)
+        btn_frame = tk.Frame(control_row, bg=colors['bg_main'])
+        btn_frame.pack(side=tk.RIGHT)
         
         self.start_btn = tk.Button(
             btn_frame,
             text="▶  START MONITORING",
             bg=colors['accent_primary'],
             fg=colors['bg_dark'],
-            font=('Segoe UI', 11, 'bold'),
+            font=('Segoe UI', 10, 'bold'),
             relief='flat',
-            padx=20,
-            pady=10,
+            padx=15,
+            pady=8,
             cursor='hand2',
             command=self._toggle_monitoring
         )
-        self.start_btn.pack(side=tk.LEFT, padx=(0, 10))
+        self.start_btn.pack(side=tk.LEFT, padx=(0, 8))
         
         test_btn = tk.Button(
             btn_frame,
-            text="🧪  Test Screenshot",
+            text="🧪  Test",
             bg=colors['bg_light'],
             fg=colors['text_primary'],
             font=fonts['body'],
             relief='flat',
-            padx=15,
-            pady=10,
+            padx=12,
+            pady=8,
             cursor='hand2',
             command=self._test_screenshot
         )
@@ -262,7 +262,7 @@ class SCSignatureScannerApp:
             fg=colors['accent_primary'],
             font=fonts['subheading']
         )
-        log_label.pack(anchor=tk.W, pady=(0, 8))
+        log_label.pack(anchor=tk.W, pady=(0, 5))
         
         log_border = tk.Frame(scanner_content, bg=colors['border'])
         log_border.pack(fill=tk.BOTH, expand=True)
@@ -277,8 +277,8 @@ class SCSignatureScannerApp:
             font=fonts['mono_small'],
             relief='flat',
             padx=10,
-            pady=10,
-            height=10,
+            pady=8,
+            height=12,
             state=tk.DISABLED,
             insertbackground=colors['accent_primary'],
             selectbackground=colors['accent_primary'],
@@ -305,9 +305,87 @@ class SCSignatureScannerApp:
         settings_content = tk.Frame(settings_tab, bg=colors['bg_main'], padx=5, pady=10)
         settings_content.pack(fill=tk.BOTH, expand=True)
         
-        # Popup Position section
+        # === Row 1: Scan Region + Popup Position (side by side) ===
+        row1 = tk.Frame(settings_content, bg=colors['bg_main'])
+        row1.pack(fill=tk.X, pady=(0, 10))
+        
+        # Left: Scan Region
+        region_frame = tk.Frame(row1, bg=colors['bg_main'])
+        region_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        
+        region_label = tk.Label(
+            region_frame,
+            text="SCAN REGION",
+            bg=colors['bg_main'],
+            fg=colors['accent_primary'],
+            font=fonts['subheading']
+        )
+        region_label.pack(anchor=tk.W, pady=(0, 5))
+        
+        region_border = tk.Frame(region_frame, bg=colors['border'])
+        region_border.pack(fill=tk.BOTH, expand=True)
+        
+        region_inner = tk.Frame(region_border, bg=colors['bg_light'], padx=12, pady=10)
+        region_inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+        
+        region_desc = tk.Label(
+            region_inner,
+            text="Define where signatures appear on screen",
+            bg=colors['bg_light'],
+            fg=colors['text_muted'],
+            font=fonts['small']
+        )
+        region_desc.pack(anchor=tk.W, pady=(0, 6))
+        
+        region_row = tk.Frame(region_inner, bg=colors['bg_light'])
+        region_row.pack(fill=tk.X, pady=(0, 8))
+        
+        self.region_label = tk.Label(
+            region_row,
+            text="Not configured",
+            bg=colors['bg_light'],
+            fg=colors['text_muted'],
+            font=fonts['mono']
+        )
+        self.region_label.pack(side=tk.LEFT)
+        
+        region_btn_frame = tk.Frame(region_inner, bg=colors['bg_light'])
+        region_btn_frame.pack(fill=tk.X)
+        
+        define_region_btn = tk.Button(
+            region_btn_frame,
+            text="📐  Define",
+            bg=colors['cyan'],
+            fg=colors['bg_dark'],
+            font=('Segoe UI', 9, 'bold'),
+            relief='flat',
+            padx=10,
+            pady=4,
+            cursor='hand2',
+            command=self._define_scan_region
+        )
+        define_region_btn.pack(side=tk.LEFT, padx=(0, 8))
+        
+        clear_region_btn = tk.Button(
+            region_btn_frame,
+            text="✕  Clear",
+            bg=colors['bg_hover'],
+            fg=colors['text_primary'],
+            font=fonts['body'],
+            relief='flat',
+            padx=10,
+            pady=4,
+            cursor='hand2',
+            command=self._clear_scan_region
+        )
+        clear_region_btn.pack(side=tk.LEFT)
+        
+        # Right: Popup Position
+        pos_frame = tk.Frame(row1, bg=colors['bg_main'])
+        pos_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+        
         pos_label = tk.Label(
-            settings_content,
+            pos_frame,
             text="POPUP POSITION",
             bg=colors['bg_main'],
             fg=colors['accent_primary'],
@@ -315,23 +393,23 @@ class SCSignatureScannerApp:
         )
         pos_label.pack(anchor=tk.W, pady=(0, 5))
         
-        pos_border = tk.Frame(settings_content, bg=colors['border'])
-        pos_border.pack(fill=tk.X, pady=(0, 10))
+        pos_border = tk.Frame(pos_frame, bg=colors['border'])
+        pos_border.pack(fill=tk.BOTH, expand=True)
         
-        pos_inner = tk.Frame(pos_border, bg=colors['bg_light'], padx=15, pady=10)
-        pos_inner.pack(fill=tk.X, padx=1, pady=1)
+        pos_inner = tk.Frame(pos_border, bg=colors['bg_light'], padx=12, pady=10)
+        pos_inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+        
+        pos_desc = tk.Label(
+            pos_inner,
+            text="Where results overlay appears",
+            bg=colors['bg_light'],
+            fg=colors['text_muted'],
+            font=fonts['small']
+        )
+        pos_desc.pack(anchor=tk.W, pady=(0, 6))
         
         pos_row = tk.Frame(pos_inner, bg=colors['bg_light'])
-        pos_row.pack(fill=tk.X)
-        
-        pos_text = tk.Label(
-            pos_row,
-            text="Current:",
-            bg=colors['bg_light'],
-            fg=colors['text_secondary'],
-            font=fonts['body']
-        )
-        pos_text.pack(side=tk.LEFT)
+        pos_row.pack(fill=tk.X, pady=(0, 8))
         
         self.position_label = tk.Label(
             pos_row,
@@ -340,24 +418,24 @@ class SCSignatureScannerApp:
             fg=colors['text_muted'],
             font=fonts['mono']
         )
-        self.position_label.pack(side=tk.LEFT, padx=(8, 0))
+        self.position_label.pack(side=tk.LEFT)
         
         pos_btn_frame = tk.Frame(pos_inner, bg=colors['bg_light'])
-        pos_btn_frame.pack(fill=tk.X, pady=(8, 0))
+        pos_btn_frame.pack(fill=tk.X)
         
         adjust_btn = tk.Button(
             pos_btn_frame,
-            text="📍  Adjust Position",
+            text="📍  Adjust",
             bg=colors['cyan'],
             fg=colors['bg_dark'],
-            font=('Segoe UI', 10, 'bold'),
+            font=('Segoe UI', 9, 'bold'),
             relief='flat',
-            padx=15,
-            pady=6,
+            padx=10,
+            pady=4,
             cursor='hand2',
             command=self._adjust_position
         )
-        adjust_btn.pack(side=tk.LEFT, padx=(0, 10))
+        adjust_btn.pack(side=tk.LEFT, padx=(0, 8))
         
         reset_btn = tk.Button(
             pos_btn_frame,
@@ -366,40 +444,49 @@ class SCSignatureScannerApp:
             fg=colors['text_primary'],
             font=fonts['body'],
             relief='flat',
-            padx=15,
-            pady=6,
+            padx=10,
+            pady=4,
             cursor='hand2',
             command=self._reset_position
         )
         reset_btn.pack(side=tk.LEFT)
         
-        # Duration & Max Results on same row
-        dur_max_label = tk.Label(
-            settings_content,
-            text="POPUP OPTIONS",
+        # Update labels on startup
+        self._update_region_label()
+        
+        # === Row 2: Popup Duration + Popup Scale (side by side) ===
+        row2 = tk.Frame(settings_content, bg=colors['bg_main'])
+        row2.pack(fill=tk.X, pady=(0, 10))
+        
+        # Left: Popup Duration
+        dur_frame = tk.Frame(row2, bg=colors['bg_main'])
+        dur_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        
+        dur_label = tk.Label(
+            dur_frame,
+            text="POPUP DURATION",
             bg=colors['bg_main'],
             fg=colors['accent_primary'],
             font=fonts['subheading']
         )
-        dur_max_label.pack(anchor=tk.W, pady=(8, 5))
+        dur_label.pack(anchor=tk.W, pady=(0, 5))
         
-        dur_max_border = tk.Frame(settings_content, bg=colors['border'])
-        dur_max_border.pack(fill=tk.X, pady=(0, 10))
+        dur_border = tk.Frame(dur_frame, bg=colors['border'])
+        dur_border.pack(fill=tk.BOTH, expand=True)
         
-        dur_max_inner = tk.Frame(dur_max_border, bg=colors['bg_light'], padx=15, pady=10)
-        dur_max_inner.pack(fill=tk.X, padx=1, pady=1)
+        dur_inner = tk.Frame(dur_border, bg=colors['bg_light'], padx=12, pady=10)
+        dur_inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
         
-        dur_max_row = tk.Frame(dur_max_inner, bg=colors['bg_light'])
-        dur_max_row.pack(fill=tk.X)
+        dur_row = tk.Frame(dur_inner, bg=colors['bg_light'])
+        dur_row.pack(fill=tk.X, pady=(5, 0))
         
-        # Duration
         self.duration_var = tk.IntVar(value=10)
         dur_spin = tk.Spinbox(
-            dur_max_row,
+            dur_row,
             from_=1,
             to=30,
             textvariable=self.duration_var,
-            width=4,
+            width=5,
             bg=colors['bg_dark'],
             fg=colors['text_primary'],
             font=fonts['mono'],
@@ -409,44 +496,46 @@ class SCSignatureScannerApp:
         dur_spin.pack(side=tk.LEFT)
         
         dur_text = tk.Label(
-            dur_max_row,
-            text="sec duration",
+            dur_row,
+            text="seconds",
             bg=colors['bg_light'],
             fg=colors['text_secondary'],
             font=fonts['body']
         )
-        dur_text.pack(side=tk.LEFT, padx=(5, 0))
+        dur_text.pack(side=tk.LEFT, padx=(8, 0))
         
-        # Popup Scale section
+        # Right: Popup Scale
+        scale_frame = tk.Frame(row2, bg=colors['bg_main'])
+        scale_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+        
         scale_label = tk.Label(
-            settings_content,
+            scale_frame,
             text="POPUP SCALE",
             bg=colors['bg_main'],
             fg=colors['accent_primary'],
             font=fonts['subheading']
         )
-        scale_label.pack(anchor=tk.W, pady=(8, 5))
+        scale_label.pack(anchor=tk.W, pady=(0, 5))
         
-        scale_border = tk.Frame(settings_content, bg=colors['border'])
-        scale_border.pack(fill=tk.X, pady=(0, 10))
+        scale_border = tk.Frame(scale_frame, bg=colors['border'])
+        scale_border.pack(fill=tk.BOTH, expand=True)
         
-        scale_inner = tk.Frame(scale_border, bg=colors['bg_light'], padx=15, pady=10)
-        scale_inner.pack(fill=tk.X, padx=1, pady=1)
+        scale_inner = tk.Frame(scale_border, bg=colors['bg_light'], padx=12, pady=10)
+        scale_inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
         
         scale_row = tk.Frame(scale_inner, bg=colors['bg_light'])
-        scale_row.pack(fill=tk.X)
+        scale_row.pack(fill=tk.X, pady=(5, 0))
         
         self.scale_var = tk.DoubleVar(value=1.0)
         
-        scale_label_val = tk.Label(
+        scale_label_min = tk.Label(
             scale_row,
             text="50%",
             bg=colors['bg_light'],
             fg=colors['text_muted'],
-            font=fonts['small'],
-            width=4
+            font=fonts['small']
         )
-        scale_label_val.pack(side=tk.LEFT)
+        scale_label_min.pack(side=tk.LEFT)
         
         def update_scale_label(val):
             self.scale_display.configure(text=f"{float(val):.0%}")
@@ -463,7 +552,7 @@ class SCSignatureScannerApp:
             highlightthickness=0,
             troughcolor=colors['bg_dark'],
             activebackground=colors['accent_primary'],
-            length=200,
+            length=150,
             showvalue=False,
             command=update_scale_label
         )
@@ -474,8 +563,7 @@ class SCSignatureScannerApp:
             text="200%",
             bg=colors['bg_light'],
             fg=colors['text_muted'],
-            font=fonts['small'],
-            width=4
+            font=fonts['small']
         )
         scale_label_max.pack(side=tk.LEFT)
         
@@ -486,35 +574,33 @@ class SCSignatureScannerApp:
             fg=colors['cyan'],
             font=fonts['mono']
         )
-        self.scale_display.pack(side=tk.LEFT, padx=(15, 0))
+        self.scale_display.pack(side=tk.LEFT, padx=(10, 0))
         
-        # Refinery Yield section
+        # === Row 3: Refinery Yield + Pricing Data (side by side) ===
+        row3 = tk.Frame(settings_content, bg=colors['bg_main'])
+        row3.pack(fill=tk.X, pady=(0, 10))
+        
+        # Left: Refinery Yield
+        yield_frame = tk.Frame(row3, bg=colors['bg_main'])
+        yield_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        
         yield_label = tk.Label(
-            settings_content,
+            yield_frame,
             text="REFINERY YIELD",
             bg=colors['bg_main'],
             fg=colors['accent_primary'],
             font=fonts['subheading']
         )
-        yield_label.pack(anchor=tk.W, pady=(8, 5))
+        yield_label.pack(anchor=tk.W, pady=(0, 5))
         
-        yield_border = tk.Frame(settings_content, bg=colors['border'])
-        yield_border.pack(fill=tk.X, pady=(0, 10))
+        yield_border = tk.Frame(yield_frame, bg=colors['border'])
+        yield_border.pack(fill=tk.BOTH, expand=True)
         
-        yield_inner = tk.Frame(yield_border, bg=colors['bg_light'], padx=15, pady=10)
-        yield_inner.pack(fill=tk.X, padx=1, pady=1)
-        
-        yield_desc = tk.Label(
-            yield_inner,
-            text="Volume conversion factor for refined material (game may adjust this)",
-            bg=colors['bg_light'],
-            fg=colors['text_muted'],
-            font=fonts['small']
-        )
-        yield_desc.pack(anchor=tk.W, pady=(0, 5))
+        yield_inner = tk.Frame(yield_border, bg=colors['bg_light'], padx=12, pady=10)
+        yield_inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
         
         yield_row = tk.Frame(yield_inner, bg=colors['bg_light'])
-        yield_row.pack(fill=tk.X)
+        yield_row.pack(fill=tk.X, pady=(5, 0))
         
         self.yield_var = tk.DoubleVar(value=0.5)
         
@@ -523,8 +609,7 @@ class SCSignatureScannerApp:
             text="0%",
             bg=colors['bg_light'],
             fg=colors['text_muted'],
-            font=fonts['small'],
-            width=4
+            font=fonts['small']
         )
         yield_label_min.pack(side=tk.LEFT)
         
@@ -544,7 +629,7 @@ class SCSignatureScannerApp:
             highlightthickness=0,
             troughcolor=colors['bg_dark'],
             activebackground=colors['accent_primary'],
-            length=200,
+            length=150,
             showvalue=False,
             command=update_yield_label
         )
@@ -555,8 +640,7 @@ class SCSignatureScannerApp:
             text="100%",
             bg=colors['bg_light'],
             fg=colors['text_muted'],
-            font=fonts['small'],
-            width=5
+            font=fonts['small']
         )
         yield_label_max.pack(side=tk.LEFT)
         
@@ -567,26 +651,29 @@ class SCSignatureScannerApp:
             fg=colors['cyan'],
             font=fonts['mono']
         )
-        self.yield_display.pack(side=tk.LEFT, padx=(15, 0))
+        self.yield_display.pack(side=tk.LEFT, padx=(10, 0))
         
-        # Pricing section
+        # Right: Pricing Data
+        pricing_frame = tk.Frame(row3, bg=colors['bg_main'])
+        pricing_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+        
         pricing_label = tk.Label(
-            settings_content,
+            pricing_frame,
             text="PRICING DATA",
             bg=colors['bg_main'],
             fg=colors['accent_primary'],
             font=fonts['subheading']
         )
-        pricing_label.pack(anchor=tk.W, pady=(8, 5))
+        pricing_label.pack(anchor=tk.W, pady=(0, 5))
         
-        pricing_border = tk.Frame(settings_content, bg=colors['border'])
-        pricing_border.pack(fill=tk.X, pady=(0, 10))
+        pricing_border = tk.Frame(pricing_frame, bg=colors['border'])
+        pricing_border.pack(fill=tk.BOTH, expand=True)
         
-        pricing_inner = tk.Frame(pricing_border, bg=colors['bg_light'], padx=15, pady=10)
-        pricing_inner.pack(fill=tk.X, padx=1, pady=1)
+        pricing_inner = tk.Frame(pricing_border, bg=colors['bg_light'], padx=12, pady=10)
+        pricing_inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
         
         pricing_row = tk.Frame(pricing_inner, bg=colors['bg_light'])
-        pricing_row.pack(fill=tk.X)
+        pricing_row.pack(fill=tk.X, pady=(5, 0))
         
         pricing_status_text = tk.Label(
             pricing_row,
@@ -604,7 +691,7 @@ class SCSignatureScannerApp:
             fg=colors['text_muted'],
             font=fonts['mono']
         )
-        self.pricing_status_label.pack(side=tk.LEFT, padx=(8, 20))
+        self.pricing_status_label.pack(side=tk.LEFT, padx=(8, 15))
         
         refresh_pricing_btn = tk.Button(
             pricing_row,
@@ -620,24 +707,31 @@ class SCSignatureScannerApp:
         )
         refresh_pricing_btn.pack(side=tk.LEFT)
         
-        # Debug Mode section
+        # === Row 4: Debug Mode + Action Buttons ===
+        row4 = tk.Frame(settings_content, bg=colors['bg_main'])
+        row4.pack(fill=tk.X, pady=(0, 10))
+        
+        # Left: Debug Mode
+        debug_frame = tk.Frame(row4, bg=colors['bg_main'])
+        debug_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        
         debug_label = tk.Label(
-            settings_content,
+            debug_frame,
             text="DEBUG MODE",
             bg=colors['bg_main'],
             fg=colors['accent_primary'],
             font=fonts['subheading']
         )
-        debug_label.pack(anchor=tk.W, pady=(8, 5))
+        debug_label.pack(anchor=tk.W, pady=(0, 5))
         
-        debug_border = tk.Frame(settings_content, bg=colors['border'])
-        debug_border.pack(fill=tk.X, pady=(0, 10))
+        debug_border = tk.Frame(debug_frame, bg=colors['border'])
+        debug_border.pack(fill=tk.BOTH, expand=True)
         
-        debug_inner = tk.Frame(debug_border, bg=colors['bg_light'], padx=15, pady=10)
-        debug_inner.pack(fill=tk.X, padx=1, pady=1)
+        debug_inner = tk.Frame(debug_border, bg=colors['bg_light'], padx=12, pady=10)
+        debug_inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
         
         debug_row = tk.Frame(debug_inner, bg=colors['bg_light'])
-        debug_row.pack(fill=tk.X)
+        debug_row.pack(fill=tk.X, pady=(5, 0))
         
         self.debug_var = tk.BooleanVar(value=False)
         debug_check = tk.Checkbutton(
@@ -656,54 +750,63 @@ class SCSignatureScannerApp:
         
         open_debug_btn = tk.Button(
             debug_row,
-            text="📂  Open Folder",
+            text="📂  Open",
             bg=colors['bg_hover'],
             fg=colors['text_primary'],
             font=fonts['body'],
             relief='flat',
             padx=10,
-            pady=4,
+            pady=3,
             cursor='hand2',
             command=self._open_debug_folder
         )
         open_debug_btn.pack(side=tk.RIGHT)
         
-        debug_desc = tk.Label(
-            debug_inner,
-            text="Saves intermediate images to debug_output/ for troubleshooting OCR",
-            bg=colors['bg_light'],
-            fg=colors['text_muted'],
-            font=fonts['small']
-        )
-        debug_desc.pack(anchor=tk.W, pady=(5, 0))
+        # Right: Action Buttons
+        action_frame = tk.Frame(row4, bg=colors['bg_main'])
+        action_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
         
-        # Action buttons
-        action_frame = tk.Frame(settings_content, bg=colors['bg_main'])
-        action_frame.pack(fill=tk.X, pady=(15, 0))
+        action_label = tk.Label(
+            action_frame,
+            text="ACTIONS",
+            bg=colors['bg_main'],
+            fg=colors['accent_primary'],
+            font=fonts['subheading']
+        )
+        action_label.pack(anchor=tk.W, pady=(0, 5))
+        
+        action_border = tk.Frame(action_frame, bg=colors['border'])
+        action_border.pack(fill=tk.BOTH, expand=True)
+        
+        action_inner = tk.Frame(action_border, bg=colors['bg_light'], padx=12, pady=10)
+        action_inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+        
+        action_row = tk.Frame(action_inner, bg=colors['bg_light'])
+        action_row.pack(fill=tk.X, pady=(5, 0))
         
         test_popup_btn = tk.Button(
-            action_frame,
+            action_row,
             text="🔔  Test Popup",
-            bg=colors['bg_light'],
+            bg=colors['bg_hover'],
             fg=colors['text_primary'],
             font=fonts['body'],
             relief='flat',
-            padx=15,
-            pady=6,
+            padx=12,
+            pady=4,
             cursor='hand2',
             command=self._test_popup
         )
         test_popup_btn.pack(side=tk.LEFT, padx=(0, 10))
         
         save_btn = tk.Button(
-            action_frame,
+            action_row,
             text="💾  Save Settings",
             bg=colors['success'],
             fg=colors['bg_dark'],
-            font=('Segoe UI', 10, 'bold'),
+            font=('Segoe UI', 9, 'bold'),
             relief='flat',
-            padx=15,
-            pady=6,
+            padx=12,
+            pady=4,
             cursor='hand2',
             command=self._save_config
         )
@@ -713,21 +816,29 @@ class SCSignatureScannerApp:
         about_tab = tk.Frame(notebook, bg=colors['bg_main'])
         notebook.add(about_tab, text="  About  ")
         
-        about_content = tk.Frame(about_tab, bg=colors['bg_main'], padx=5, pady=15)
+        about_content = tk.Frame(about_tab, bg=colors['bg_main'], padx=5, pady=10)
         about_content.pack(fill=tk.BOTH, expand=True)
         
+        # Two-column layout for About
+        about_cols = tk.Frame(about_content, bg=colors['bg_main'])
+        about_cols.pack(fill=tk.BOTH, expand=True)
+        
+        # Left column: Info + How to use
+        left_col = tk.Frame(about_cols, bg=colors['bg_main'])
+        left_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+        
         # Logo/Title
-        about_header = tk.Frame(about_content, bg=colors['bg_main'])
-        about_header.pack(fill=tk.X, pady=(0, 20))
+        about_header = tk.Frame(left_col, bg=colors['bg_main'])
+        about_header.pack(fill=tk.X, pady=(0, 15))
         
         about_title = tk.Label(
             about_header,
             text="📡 SC SIGNATURE SCANNER",
             bg=colors['bg_main'],
             fg=colors['accent_primary'],
-            font=('Segoe UI', 16, 'bold')
+            font=('Segoe UI', 14, 'bold')
         )
-        about_title.pack()
+        about_title.pack(anchor=tk.W)
         
         about_ver = tk.Label(
             about_header,
@@ -736,51 +847,46 @@ class SCSignatureScannerApp:
             fg=colors['text_muted'],
             font=fonts['small']
         )
-        about_ver.pack()
-        
-        # Description
-        desc_text = """Monitors Star Citizen screenshots for signature values
-and identifies potential targets in real-time.
-
-Contributed to Regolith.Rocks"""
+        about_ver.pack(anchor=tk.W)
         
         desc_label = tk.Label(
-            about_content,
-            text=desc_text,
+            left_col,
+            text="Monitors Star Citizen screenshots for signature\nvalues and identifies potential targets in real-time.\n\nContributed to Regolith.Rocks",
             bg=colors['bg_main'],
             fg=colors['text_secondary'],
             font=fonts['body'],
-            justify=tk.CENTER
+            justify=tk.LEFT
         )
-        desc_label.pack(pady=(0, 20))
+        desc_label.pack(anchor=tk.W, pady=(0, 15))
         
         # How to use
         howto_label = tk.Label(
-            about_content,
+            left_col,
             text="HOW TO USE",
             bg=colors['bg_main'],
             fg=colors['accent_primary'],
             font=fonts['subheading']
         )
-        howto_label.pack(anchor=tk.W, pady=(0, 8))
+        howto_label.pack(anchor=tk.W, pady=(0, 5))
         
-        howto_border = tk.Frame(about_content, bg=colors['border'])
-        howto_border.pack(fill=tk.X, pady=(0, 15))
+        howto_border = tk.Frame(left_col, bg=colors['border'])
+        howto_border.pack(fill=tk.X)
         
-        howto_inner = tk.Frame(howto_border, bg=colors['bg_light'], padx=15, pady=12)
+        howto_inner = tk.Frame(howto_border, bg=colors['bg_light'], padx=12, pady=10)
         howto_inner.pack(fill=tk.X, padx=1, pady=1)
         
         steps = [
-            ("1.", "Set Star Citizen to Windowed or Borderless"),
-            ("2.", "Select your screenshot folder"),
-            ("3.", "Click Start Monitoring"),
-            ("4.", "In-game: Press PrintScreen on signature"),
-            ("5.", "Overlay shows identification results"),
+            ("1.", "Set SC to Windowed or Borderless"),
+            ("2.", "Define the scan region in Settings"),
+            ("3.", "Select your screenshot folder"),
+            ("4.", "Click Start Monitoring"),
+            ("5.", "In-game: PrintScreen on signature"),
+            ("6.", "Overlay shows identification"),
         ]
         
         for num, text in steps:
             step_row = tk.Frame(howto_inner, bg=colors['bg_light'])
-            step_row.pack(fill=tk.X, pady=2)
+            step_row.pack(fill=tk.X, pady=1)
             
             num_label = tk.Label(
                 step_row,
@@ -797,57 +903,77 @@ Contributed to Regolith.Rocks"""
                 text=text,
                 bg=colors['bg_light'],
                 fg=colors['text_primary'],
-                font=fonts['body'],
+                font=fonts['small'],
                 anchor=tk.W
             )
             text_label.pack(side=tk.LEFT, fill=tk.X)
         
-        # Signature types
+        # Right column: Signature types
+        right_col = tk.Frame(about_cols, bg=colors['bg_main'])
+        right_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 0))
+        
         sig_label = tk.Label(
-            about_content,
+            right_col,
             text="SIGNATURE TYPES",
             bg=colors['bg_main'],
             fg=colors['accent_primary'],
             font=fonts['subheading']
         )
-        sig_label.pack(anchor=tk.W, pady=(10, 8))
+        sig_label.pack(anchor=tk.W, pady=(0, 5))
         
-        sig_border = tk.Frame(about_content, bg=colors['border'])
+        sig_border = tk.Frame(right_col, bg=colors['border'])
         sig_border.pack(fill=tk.X)
         
-        sig_inner = tk.Frame(sig_border, bg=colors['bg_light'], padx=15, pady=12)
+        sig_inner = tk.Frame(sig_border, bg=colors['bg_light'], padx=12, pady=10)
         sig_inner.pack(fill=tk.X, padx=1, pady=1)
         
         sig_types = [
-            ("🚀", "Ships", "Radar cross-section"),
-            ("🪨", "Asteroids", "I, C, S, P, M, Q, E types"),
-            ("⛏️", "Deposits", "Surface mining rocks"),
-            ("🔧", "Salvage", "2000 per hull panel"),
+            ("🚀", "Ship Mining", "Mixed mineral composition"),
+            ("🪨", "Asteroids", "I, C, S, P, M, Q, E"),
+            ("⛏️", "Deposits", "Shale, Felsic, Obsidian, Atacamite"),
+            (None, None, "Quartzite, Gneiss, Granite, Igneous"),
+            ("", "", ""),
+            ("🚗", "Vehicle / Hand", "100% single mineral"),
+            ("💎", "ROC Gems", "Hadanite, Dolivine, Aphorite"),
+            (None, None, "Beradom, Glacosite, Feynmaline, Jaclium"),
+            ("", "", ""),
+            ("🔧", "Salvage", "2000 sig per hull panel"),
         ]
         
         for icon, name, desc in sig_types:
             sig_row = tk.Frame(sig_inner, bg=colors['bg_light'])
             sig_row.pack(fill=tk.X, pady=2)
             
-            icon_label = tk.Label(
-                sig_row,
-                text=icon,
-                bg=colors['bg_light'],
-                font=('Segoe UI', 11),
-                width=3
-            )
-            icon_label.pack(side=tk.LEFT)
-            
-            name_label = tk.Label(
-                sig_row,
-                text=name,
-                bg=colors['bg_light'],
-                fg=colors['text_primary'],
-                font=('Segoe UI', 10, 'bold'),
-                width=10,
-                anchor=tk.W
-            )
-            name_label.pack(side=tk.LEFT)
+            if icon is not None:
+                # Normal row with icon and name
+                icon_label = tk.Label(
+                    sig_row,
+                    text=icon,
+                    bg=colors['bg_light'],
+                    font=('Segoe UI', 11),
+                    width=2
+                )
+                icon_label.pack(side=tk.LEFT)
+                
+                name_label = tk.Label(
+                    sig_row,
+                    text=name,
+                    bg=colors['bg_light'],
+                    fg=colors['text_primary'],
+                    font=('Segoe UI', 10, 'bold'),
+                    width=8,
+                    anchor=tk.W
+                )
+                name_label.pack(side=tk.LEFT)
+            else:
+                # Continuation row - indent to align with description
+                spacer = tk.Label(
+                    sig_row,
+                    text="",
+                    bg=colors['bg_light'],
+                    width=10
+                )
+                spacer.pack(side=tk.LEFT)
             
             desc_label = tk.Label(
                 sig_row,
@@ -865,7 +991,7 @@ Contributed to Regolith.Rocks"""
         if folder:
             self.folder_var.set(folder)
             self._log(f"📁 Screenshot folder: {folder}")
-            self._save_config(show_message=False)  # Auto-save folder selection
+            self._save_config(show_message=False)
     
     def _toggle_monitoring(self):
         """Start or stop monitoring."""
@@ -880,6 +1006,18 @@ Contributed to Regolith.Rocks"""
         if not folder or not Path(folder).exists():
             messagebox.showerror("Error", "Please select a valid screenshot folder")
             return
+        
+        # Check if scan region is configured
+        if not region_selector.is_configured():
+            result = messagebox.askyesno(
+                "No Scan Region",
+                "No scan region is configured.\n\n"
+                "The scanner will search the entire image which may be slower and less accurate.\n\n"
+                "Would you like to define a scan region first?"
+            )
+            if result:
+                self._define_scan_region()
+                return
         
         # Mark existing files to ignore
         self.processed_files = set(Path(folder).glob("*.png"))
@@ -964,7 +1102,6 @@ Contributed to Regolith.Rocks"""
                 
                 # Show overlay
                 if matches:
-                    # Create temporary overlay if not monitoring
                     if not self.overlay:
                         self.overlay = OverlayPopup(
                             position=self.overlay_position,
@@ -1004,13 +1141,11 @@ Contributed to Regolith.Rocks"""
             self.overlay_position = (x, y)
             self._update_position_label()
             self._log(f"📍 Position set: ({x}, {y})")
-            self._save_config(show_message=False)  # Auto-save position
+            self._save_config(show_message=False)
             
-            # Update overlay if running
             if self.overlay:
                 self.overlay.set_position(x, y)
         
-        # Show adjuster (modal - blocks until closed)
         adjuster = PositionAdjuster(
             parent=self.root,
             current_position=self.overlay_position,
@@ -1023,7 +1158,7 @@ Contributed to Regolith.Rocks"""
         self.overlay_position = None
         self._update_position_label()
         self._log("📍 Position reset to center")
-        self._save_config(show_message=False)  # Auto-save position reset
+        self._save_config(show_message=False)
         
         if self.overlay:
             self.overlay.position = None
@@ -1044,11 +1179,9 @@ Contributed to Regolith.Rocks"""
     
     def _test_popup(self):
         """Show a test popup at current position."""
-        # Clean up any existing test overlay
         if hasattr(self, '_test_overlay') and self._test_overlay:
             self._test_overlay.destroy()
         
-        # Create temporary overlay (store as instance var so timer works)
         self._test_overlay = OverlayPopup(
             position=self.overlay_position,
             duration=self.duration_var.get(),
@@ -1082,7 +1215,7 @@ Contributed to Regolith.Rocks"""
     
     def _init_scanner(self):
         """Initialize the signature scanner with database."""
-        db_path = Path(__file__).parent / "data" / "combat_analyst_db.json"
+        db_path = paths.get_data_path() / "combat_analyst_db.json"
         
         if db_path.exists():
             self.scanner = SignatureScanner(db_path)
@@ -1101,7 +1234,7 @@ Contributed to Regolith.Rocks"""
                 self._log(f"   Output: {self.scanner.debug_dir}")
             else:
                 self._log("🔧 Debug mode disabled")
-        self._save_config(show_message=False)  # Auto-save debug setting
+        self._save_config(show_message=False)
     
     def _open_debug_folder(self):
         """Open the debug output folder in file explorer."""
@@ -1114,9 +1247,9 @@ Contributed to Regolith.Rocks"""
             
             if platform.system() == 'Windows':
                 os.startfile(debug_dir)
-            elif platform.system() == 'Darwin':  # macOS
+            elif platform.system() == 'Darwin':
                 os.system(f'open "{debug_dir}"')
-            else:  # Linux
+            else:
                 os.system(f'xdg-open "{debug_dir}"')
             
             self._log(f"📂 Opened: {debug_dir}")
@@ -1134,7 +1267,6 @@ Contributed to Regolith.Rocks"""
             self._log(f"  Systems: {', '.join(status['systems'])}")
             self._update_pricing_status()
             
-            # Apply saved refinery yield
             pricing.set_refinery_yield(self.yield_var.get())
         else:
             self._log(f"⚠ Pricing failed: {error}")
@@ -1146,10 +1278,8 @@ Contributed to Regolith.Rocks"""
             update_available, latest_version, download_url = version_checker.check_for_updates()
             
             if update_available:
-                # Schedule UI update on main thread
                 self.root.after(0, lambda: self._show_update_notification(latest_version, download_url))
         
-        # Run in background thread
         thread = threading.Thread(target=check, daemon=True)
         thread.start()
     
@@ -1161,7 +1291,6 @@ Contributed to Regolith.Rocks"""
         self._log(f"   Download from GitHub releases")
         self._log(f"")
         
-        # Optional: Show dialog
         if messagebox.askyesno(
             "Update Available",
             f"A new version is available!\n\n"
@@ -1212,6 +1341,45 @@ Contributed to Regolith.Rocks"""
                 fg=RegolithTheme.COLORS['error']
             )
     
+    def _define_scan_region(self):
+        """Open region selector to define scan area."""
+        def on_save(x1, y1, x2, y2):
+            self._update_region_label()
+            self._log(f"📐 Scan region set: ({x1}, {y1}) to ({x2}, {y2})")
+        
+        selector = region_selector.RegionSelector(
+            parent=self.root,
+            on_save=on_save
+        )
+        selector.open()
+    
+    def _clear_scan_region(self):
+        """Clear the saved scan region."""
+        if region_selector.is_configured():
+            region_selector.clear_region()
+            self._update_region_label()
+            self._log("📐 Scan region cleared")
+            messagebox.showinfo("Region Cleared", "Scan region has been cleared.")
+        else:
+            messagebox.showinfo("No Region", "No scan region is currently configured.")
+    
+    def _update_region_label(self):
+        """Update the region display label."""
+        region = region_selector.load_region()
+        if region:
+            x1, y1, x2, y2 = region
+            w = x2 - x1
+            h = y2 - y1
+            self.region_label.configure(
+                text=f"({x1},{y1})→({x2},{y2}) [{w}×{h}]",
+                fg=RegolithTheme.COLORS['success']
+            )
+        else:
+            self.region_label.configure(
+                text="Not configured",
+                fg=RegolithTheme.COLORS['text_muted']
+            )
+    
     def _log(self, message: str):
         """Add message to log display."""
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -1230,13 +1398,9 @@ Contributed to Regolith.Rocks"""
             self.yield_var.set(cfg.get('refinery_yield', 0.5))
             self.debug_var.set(cfg.get('debug_mode', False))
             
-            # Update scale display
             self.scale_display.configure(text=f"{self.scale_var.get():.0%}")
-            
-            # Update yield display
             self.yield_display.configure(text=f"{int(self.yield_var.get() * 100)}%")
             
-            # Load position
             pos_x = cfg.get('popup_position_x')
             pos_y = cfg.get('popup_position_y')
             if pos_x is not None and pos_y is not None:
@@ -1244,7 +1408,6 @@ Contributed to Regolith.Rocks"""
             
             self._update_position_label()
             
-            # Apply debug mode
             if self.scanner and self.debug_var.get():
                 self.scanner.enable_debug(True)
             
@@ -1260,12 +1423,10 @@ Contributed to Regolith.Rocks"""
             'debug_mode': self.debug_var.get(),
         }
         
-        # Save position
         if self.overlay_position:
             cfg['popup_position_x'] = self.overlay_position[0]
             cfg['popup_position_y'] = self.overlay_position[1]
         
-        # Apply refinery yield to pricing manager
         pricing.set_refinery_yield(self.yield_var.get())
         
         self.config.save(cfg)
@@ -1281,7 +1442,7 @@ Contributed to Regolith.Rocks"""
     def _on_close(self):
         """Handle window close."""
         self._stop_monitoring()
-        self._save_config(show_message=False)  # Auto-save on close
+        self._save_config(show_message=False)
         self.root.destroy()
 
 

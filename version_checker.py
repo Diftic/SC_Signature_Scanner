@@ -127,16 +127,3 @@ def get_release_notes(timeout: int = 5) -> Optional[str]:
     except Exception:
         return None
 
-
-# Test
-if __name__ == "__main__":
-    print(f"Current version: {CURRENT_VERSION}")
-    print(f"Checking {RELEASES_URL}...")
-    
-    update_available, latest, url = check_for_updates()
-    
-    if update_available:
-        print(f"Update available: {latest}")
-        print(f"Download: {url}")
-    else:
-        print("No updates available (or check failed)")

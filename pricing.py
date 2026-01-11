@@ -428,37 +428,3 @@ def set_refinery_yield(yield_factor: float):
     """Set refinery yield factor (0.0 to 1.0)."""
     get_pricing_manager().set_refinery_yield(yield_factor)
 
-
-# For testing
-if __name__ == "__main__":
-    print("Initializing pricing system...")
-    success, error = initialize_pricing()
-    
-    if not success:
-        print(f"❌ Failed: {error}")
-    else:
-        manager = get_pricing_manager()
-        status = manager.get_status()
-        
-        print(f"✅ Loaded {status['ore_count']} ore prices")
-        print(f"   Systems: {', '.join(status['systems'])}")
-        print(f"   Refinery Yield: {status['refinery_yield_pct']}%")
-        print()
-        
-        # Show some example values
-        for system in ['STANTON', 'PYRO']:
-            print(f"\n=== {system} (with {status['refinery_yield_pct']}% refinery yield) ===")
-            rock_types = manager.get_rock_types_for_system(system)
-            
-            for rock_type in sorted(rock_types):
-                summary = manager.get_rock_summary(system, rock_type)
-                if summary:
-                    value = summary['estimated_value']
-                    mass = summary['median_mass']
-                    print(f"  {rock_type:12} | Mass: {mass:>6.0f} kg | Est. Value: {value:>12,.0f} aUEC")
-                    
-                    # Show top ore with density info
-                    if summary['top_ores']:
-                        top = summary['top_ores'][0]
-                        # top = (name, value, pct, price, density)
-                        print(f"               | Top: {top[0]} (price: {top[3]:,.0f}/SCU, density: {top[4]:.1f} kg/SCU)")
