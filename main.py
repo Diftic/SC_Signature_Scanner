@@ -851,7 +851,7 @@ class SCSignatureScannerApp:
         
         desc_label = tk.Label(
             left_col,
-            text="Monitors Star Citizen screenshots for signature\nvalues and identifies potential targets in real-time.\n\nContributed to Regolith.Rocks",
+            text="Monitors Star Citizen screenshots for signature\nvalues and identifies potential targets in real-time.\n\nMade by Mallachi, for Regolith.Rocks\nJanuary 2026",
             bg=colors['bg_main'],
             fg=colors['text_secondary'],
             font=fonts['body'],
@@ -928,14 +928,17 @@ class SCSignatureScannerApp:
         sig_inner.pack(fill=tk.X, padx=1, pady=1)
         
         sig_types = [
-            ("🚀", "Ship Mining", "Mixed mineral composition"),
-            ("🪨", "Asteroids", "I, C, S, P, M, Q, E"),
-            ("⛏️", "Deposits", "Shale, Felsic, Obsidian, Atacamite"),
+            ("🚀", "Space", "Asteroids - Ship mining only"),
+            (None, None, "I, C, S, P, M, Q, E types"),
+            ("", "", ""),
+            ("⛏️", "Surface", "Surface deposits - Ship mining"),
+            (None, None, "Shale, Felsic, Obsidian, Atacamite"),
             (None, None, "Quartzite, Gneiss, Granite, Igneous"),
             ("", "", ""),
-            ("🚗", "Vehicle / Hand", "100% single mineral"),
-            ("💎", "ROC Gems", "Hadanite, Dolivine, Aphorite"),
-            (None, None, "Beradom, Glacosite, Feynmaline, Jaclium"),
+            ("💎", "Ground", "Ground deposits - ROC or FPS"),
+            (None, None, "Small (120) = FPS/Hand mining"),
+            (None, None, "Large (620) = ROC/Vehicle"),
+            (None, None, "100% single mineral per cluster"),
             ("", "", ""),
             ("🔧", "Salvage", "2000 sig per hull panel"),
         ]
