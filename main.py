@@ -46,7 +46,7 @@ class SCSignatureScannerApp:
         
         # Center window on screen
         window_width = 520
-        window_height = 900
+        window_height = 1000
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         x = (screen_width - window_width) // 2
@@ -69,10 +69,12 @@ class SCSignatureScannerApp:
         
         # Build UI
         self._create_ui()
-        self._load_config()
         
         # Initialize scanner with signature database
         self._init_scanner()
+        
+        # Load config (after scanner exists so debug mode can be applied)
+        self._load_config()
         
         # Initialize pricing system
         self._init_pricing()
@@ -391,7 +393,7 @@ class SCSignatureScannerApp:
         dur_max_row.pack(fill=tk.X)
         
         # Duration
-        self.duration_var = tk.IntVar(value=5)
+        self.duration_var = tk.IntVar(value=10)
         dur_spin = tk.Spinbox(
             dur_max_row,
             from_=1,
@@ -413,32 +415,7 @@ class SCSignatureScannerApp:
             fg=colors['text_secondary'],
             font=fonts['body']
         )
-        dur_text.pack(side=tk.LEFT, padx=(5, 20))
-        
-        # Max Results
-        self.max_results_var = tk.IntVar(value=10)
-        max_spin = tk.Spinbox(
-            dur_max_row,
-            from_=1,
-            to=10,
-            textvariable=self.max_results_var,
-            width=4,
-            bg=colors['bg_dark'],
-            fg=colors['text_primary'],
-            font=fonts['mono'],
-            relief='flat',
-            buttonbackground=colors['bg_light']
-        )
-        max_spin.pack(side=tk.LEFT)
-        
-        max_text = tk.Label(
-            dur_max_row,
-            text="max results",
-            bg=colors['bg_light'],
-            fg=colors['text_secondary'],
-            font=fonts['body']
-        )
-        max_text.pack(side=tk.LEFT, padx=(5, 0))
+        dur_text.pack(side=tk.LEFT, padx=(5, 0))
         
         # Popup Scale section
         scale_label = tk.Label(
@@ -643,6 +620,63 @@ class SCSignatureScannerApp:
         )
         refresh_pricing_btn.pack(side=tk.LEFT)
         
+        # Debug Mode section
+        debug_label = tk.Label(
+            settings_content,
+            text="DEBUG MODE",
+            bg=colors['bg_main'],
+            fg=colors['accent_primary'],
+            font=fonts['subheading']
+        )
+        debug_label.pack(anchor=tk.W, pady=(8, 5))
+        
+        debug_border = tk.Frame(settings_content, bg=colors['border'])
+        debug_border.pack(fill=tk.X, pady=(0, 10))
+        
+        debug_inner = tk.Frame(debug_border, bg=colors['bg_light'], padx=15, pady=10)
+        debug_inner.pack(fill=tk.X, padx=1, pady=1)
+        
+        debug_row = tk.Frame(debug_inner, bg=colors['bg_light'])
+        debug_row.pack(fill=tk.X)
+        
+        self.debug_var = tk.BooleanVar(value=False)
+        debug_check = tk.Checkbutton(
+            debug_row,
+            text="Enable debug output",
+            variable=self.debug_var,
+            bg=colors['bg_light'],
+            fg=colors['text_primary'],
+            font=fonts['body'],
+            selectcolor=colors['bg_dark'],
+            activebackground=colors['bg_light'],
+            activeforeground=colors['text_primary'],
+            command=self._toggle_debug
+        )
+        debug_check.pack(side=tk.LEFT)
+        
+        open_debug_btn = tk.Button(
+            debug_row,
+            text="📂  Open Folder",
+            bg=colors['bg_hover'],
+            fg=colors['text_primary'],
+            font=fonts['body'],
+            relief='flat',
+            padx=10,
+            pady=4,
+            cursor='hand2',
+            command=self._open_debug_folder
+        )
+        open_debug_btn.pack(side=tk.RIGHT)
+        
+        debug_desc = tk.Label(
+            debug_inner,
+            text="Saves intermediate images to debug_output/ for troubleshooting OCR",
+            bg=colors['bg_light'],
+            fg=colors['text_muted'],
+            font=fonts['small']
+        )
+        debug_desc.pack(anchor=tk.W, pady=(5, 0))
+        
         # Action buttons
         action_frame = tk.Frame(settings_content, bg=colors['bg_main'])
         action_frame.pack(fill=tk.X, pady=(15, 0))
@@ -831,6 +865,7 @@ Contributed to Regolith.Rocks"""
         if folder:
             self.folder_var.set(folder)
             self._log(f"📁 Screenshot folder: {folder}")
+            self._save_config(show_message=False)  # Auto-save folder selection
     
     def _toggle_monitoring(self):
         """Start or stop monitoring."""
@@ -850,6 +885,9 @@ Contributed to Regolith.Rocks"""
         self.processed_files = set(Path(folder).glob("*.png"))
         self.processed_files.update(Path(folder).glob("*.jpg"))
         self.processed_files.update(Path(folder).glob("*.jpeg"))
+        self.processed_files.update(Path(folder).glob("*.jxr"))
+        self.processed_files.update(Path(folder).glob("*.hdp"))
+        self.processed_files.update(Path(folder).glob("*.wdp"))
         self.screenshot_count = 0
         
         # Start monitor
@@ -902,18 +940,49 @@ Contributed to Regolith.Rocks"""
         if self.scanner:
             result = self.scanner.scan_image(filepath)
             
+            # Check for errors
+            if result and result.get('error'):
+                self._log(f"   ⚠ Error: {result['error']}")
+                self.screenshot_count += 1
+                self.stats_label.configure(text=f"{self.screenshot_count} screenshots processed")
+                return
+            
             if result and result.get('signature'):
                 sig = result['signature']
                 matches = result.get('matches', [])
+                all_sigs = result.get('all_signatures', [])
                 
                 self._log(f"   Signature: {sig:,}")
+                if len(all_sigs) > 1:
+                    self._log(f"   All found: {all_sigs}")
                 self._log(f"   Matches: {len(matches)}")
                 
+                # Show debug info
+                if self.debug_var.get() and result.get('debug'):
+                    debug = result['debug']
+                    self._log(f"   [DEBUG] Regions: {debug.get('regions_checked', 0)}")
+                    for ocr in debug.get('raw_ocr_text', []):
+                        text_preview = ocr['text'][:50] + '...' if len(ocr['text']) > 50 else ocr['text']
+                        self._log(f"   [DEBUG] OCR ({ocr['region']}): {text_preview}")
+                
                 # Show overlay
-                if self.overlay and matches:
-                    self.overlay.show(sig, matches[:self.max_results_var.get()])
+                if matches:
+                    # Create temporary overlay if not monitoring
+                    if not self.overlay:
+                        self.overlay = OverlayPopup(
+                            position=self.overlay_position,
+                            duration=self.duration_var.get(),
+                            scale=self.scale_var.get()
+                        )
+                    self.overlay.show(sig, matches)
             else:
                 self._log("   No signature detected")
+                
+                # Show debug info even on failure
+                if self.debug_var.get() and self.scanner.last_debug_info:
+                    debug = self.scanner.last_debug_info
+                    self._log(f"   [DEBUG] Regions checked: {debug.get('regions_checked', 0)}")
+                    self._log(f"   [DEBUG] Check debug_output/ for images")
         
         # Update stats
         self.screenshot_count += 1
@@ -923,7 +992,12 @@ Contributed to Regolith.Rocks"""
         """Test with a manually selected screenshot."""
         filepath = filedialog.askopenfilename(
             title="Select Screenshot to Test",
-            filetypes=[("Image files", "*.png *.jpg *.jpeg")]
+            filetypes=[
+                ("All supported", "*.png *.jpg *.jpeg *.jxr *.hdp *.wdp"),
+                ("PNG files", "*.png"),
+                ("JPEG files", "*.jpg *.jpeg"),
+                ("JPEG XR files", "*.jxr *.hdp *.wdp"),
+            ]
         )
         if filepath:
             self._on_new_screenshot(Path(filepath))
@@ -934,6 +1008,7 @@ Contributed to Regolith.Rocks"""
             self.overlay_position = (x, y)
             self._update_position_label()
             self._log(f"📍 Position set: ({x}, {y})")
+            self._save_config(show_message=False)  # Auto-save position
             
             # Update overlay if running
             if self.overlay:
@@ -952,6 +1027,7 @@ Contributed to Regolith.Rocks"""
         self.overlay_position = None
         self._update_position_label()
         self._log("📍 Position reset to center")
+        self._save_config(show_message=False)  # Auto-save position reset
         
         if self.overlay:
             self.overlay.position = None
@@ -983,27 +1059,30 @@ Contributed to Regolith.Rocks"""
             scale=self.scale_var.get()
         )
         
-        # Fixed test data - generate enough to fill max_results
-        max_results = self.max_results_var.get()
-        test_signature = 17000
-        
-        all_test_matches = [
-            {'type': 'ship', 'name': 'AEGS Gladius', 'confidence': 0.95, 'facing': 'front'},
-            {'type': 'ship', 'name': 'AEGS Sabre', 'confidence': 0.82, 'facing': 'side'},
-            {'type': 'ship', 'name': 'DRAK Cutlass Black', 'confidence': 0.75, 'facing': 'rear'},
-            {'type': 'asteroid', 'name': 'C-type Asteroid', 'count': 10, 'est_value': 125000},
-            {'type': 'asteroid', 'name': 'P-type Asteroid', 'count': 3, 'est_value': 340000},
-            {'type': 'deposit', 'name': 'Hadanite Cluster', 'count': 5, 'est_value': 45000},
-            {'type': 'salvage', 'name': 'Salvage Panels', 'panels': 8},
-            {'type': 'ship', 'name': 'RSI Constellation', 'confidence': 0.68, 'facing': 'front'},
-            {'type': 'asteroid', 'name': 'Q-type Asteroid', 'count': 2, 'est_value': 890000},
-            {'type': 'ship', 'name': 'MISC Freelancer', 'confidence': 0.55, 'facing': 'side'},
-        ]
-        
-        test_matches = all_test_matches[:max_results]
+        # Test data for E-type asteroid
+        test_signature = 1900
+        test_matches = [{
+            'type': 'known',
+            'name': 'E-type Asteroid',
+            'category': 'asteroid',
+            'rock_type': 'ETYPE',
+            'signature': 1900,
+            'confidence': 1.0,
+            'est_value': 67000,
+            'composition': [
+                {'name': 'Quantanium', 'prob': 0.05, 'medPct': 0.30, 'value': 117000, 'price': 88},
+                {'name': 'Taranite', 'prob': 0.10, 'medPct': 0.31, 'value': 59000, 'price': 61},
+                {'name': 'Bexalite', 'prob': 0.12, 'medPct': 0.30, 'value': 76000, 'price': 44},
+                {'name': 'Gold', 'prob': 0.29, 'medPct': 0.31, 'value': 11000, 'price': 7},
+                {'name': 'Beryl', 'prob': 0.39, 'medPct': 0.42, 'value': 69000, 'price': 4},
+                {'name': 'Tungsten', 'prob': 0.18, 'medPct': 0.46, 'value': 5000, 'price': 4},
+                {'name': 'Titanium', 'prob': 0.12, 'medPct': 0.49, 'value': 21000, 'price': 8},
+                {'name': 'Quartz', 'prob': 0.13, 'medPct': 0.48, 'value': 30000, 'price': 2},
+            ]
+        }]
         
         self._test_overlay.show(test_signature, test_matches)
-        self._log(f"🔔 Test popup: {len(test_matches)} results")
+        self._log(f"🔔 Test popup displayed")
     
     def _init_scanner(self):
         """Initialize the signature scanner with database."""
@@ -1012,9 +1091,45 @@ Contributed to Regolith.Rocks"""
         if db_path.exists():
             self.scanner = SignatureScanner(db_path)
             self._log(f"✓ Signature database loaded")
+            
+            # Check JXR support
+            if self.scanner._check_jxr_support():
+                self._log(f"✓ JXR support: {self.scanner._jxr_tool_path}")
+            else:
+                self._log("⚠ JXR not supported (install ImageMagick)")
         else:
             self._log("⚠ Signature database not found!")
             self._log(f"  Expected: {db_path}")
+    
+    def _toggle_debug(self):
+        """Toggle debug mode on/off."""
+        enabled = self.debug_var.get()
+        if self.scanner:
+            self.scanner.enable_debug(enabled)
+            if enabled:
+                self._log("🔧 Debug mode ENABLED")
+                self._log(f"   Output: {self.scanner.debug_dir}")
+            else:
+                self._log("🔧 Debug mode disabled")
+        self._save_config(show_message=False)  # Auto-save debug setting
+    
+    def _open_debug_folder(self):
+        """Open the debug output folder in file explorer."""
+        if self.scanner:
+            debug_dir = self.scanner.debug_dir
+            debug_dir.mkdir(exist_ok=True)
+            
+            import os
+            import platform
+            
+            if platform.system() == 'Windows':
+                os.startfile(debug_dir)
+            elif platform.system() == 'Darwin':  # macOS
+                os.system(f'open "{debug_dir}"')
+            else:  # Linux
+                os.system(f'xdg-open "{debug_dir}"')
+            
+            self._log(f"📂 Opened: {debug_dir}")
     
     def _init_pricing(self):
         """Initialize pricing system on startup."""
@@ -1120,10 +1235,10 @@ Contributed to Regolith.Rocks"""
         cfg = self.config.load()
         if cfg:
             self.folder_var.set(cfg.get('screenshot_folder', ''))
-            self.duration_var.set(cfg.get('popup_duration', 5))
-            self.max_results_var.set(cfg.get('max_results', 10))
+            self.duration_var.set(cfg.get('popup_duration', 10))
             self.scale_var.set(cfg.get('popup_scale', 1.0))
             self.yield_var.set(cfg.get('refinery_yield', 0.5))
+            self.debug_var.set(cfg.get('debug_mode', False))
             
             # Update scale display
             self.scale_display.configure(text=f"{self.scale_var.get():.0%}")
@@ -1138,15 +1253,21 @@ Contributed to Regolith.Rocks"""
                 self.overlay_position = (pos_x, pos_y)
             
             self._update_position_label()
+            
+            # Apply debug mode
+            if self.scanner and self.debug_var.get():
+                self.scanner.enable_debug(True)
+            
+            self._log("✓ Settings loaded")
     
-    def _save_config(self):
+    def _save_config(self, show_message: bool = True):
         """Save current configuration."""
         cfg = {
             'screenshot_folder': self.folder_var.get(),
             'popup_duration': self.duration_var.get(),
-            'max_results': self.max_results_var.get(),
             'popup_scale': self.scale_var.get(),
             'refinery_yield': self.yield_var.get(),
+            'debug_mode': self.debug_var.get(),
         }
         
         # Save position
@@ -1159,7 +1280,8 @@ Contributed to Regolith.Rocks"""
         
         self.config.save(cfg)
         self._log("💾 Settings saved")
-        messagebox.showinfo("Settings", "Settings saved successfully")
+        if show_message:
+            messagebox.showinfo("Settings", "Settings saved successfully")
     
     def run(self):
         """Run the application."""
@@ -1169,6 +1291,7 @@ Contributed to Regolith.Rocks"""
     def _on_close(self):
         """Handle window close."""
         self._stop_monitoring()
+        self._save_config(show_message=False)  # Auto-save on close
         self.root.destroy()
 
 

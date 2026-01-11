@@ -1,0 +1,8 @@
+Image: ScreenShot-2026-01-10_23-12-46-649.jpg
+Size: 5120x1440
+Cross center: (1997, 806)
+Cross size: 94
+Angle: -1.1°
+Signature region: (2448, 412) - (2730, 600)
+OCR text: 1,900
+Signatures found: [1900, 900]

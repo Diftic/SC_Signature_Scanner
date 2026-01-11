@@ -23,7 +23,7 @@ class OverlayPopup:
     SALVAGE_COLOR = "#a371f7" # Purple for salvage
     MUTED_COLOR = "#8b949e"   # Muted text
     
-    def __init__(self, position: Tuple[int, int] = None, duration: int = 5, scale: float = 1.0):
+    def __init__(self, position: Tuple[int, int] = None, duration: int = 10, scale: float = 1.0):
         """
         Initialize overlay.
         
@@ -85,15 +85,16 @@ class OverlayPopup:
     
     def _build_content(self, signature: int, matches: List[Dict[str, Any]]):
         """Build the popup content."""
-        # Scaled padding
-        pad = int(15 * self.scale)
+        # Scaled padding (increased horizontal for wider popup)
+        pad_x = int(20 * self.scale)  # 10% wider
+        pad_y = int(12 * self.scale)
         pad_small = int(8 * self.scale)
         
         # Outer border frame
         border = tk.Frame(self.window, bg=self.BORDER_COLOR, padx=1, pady=1)
         border.pack(fill=tk.BOTH, expand=True)
         
-        frame = tk.Frame(border, bg=self.BG_COLOR, padx=pad, pady=int(12 * self.scale))
+        frame = tk.Frame(border, bg=self.BG_COLOR, padx=pad_x, pady=pad_y)
         frame.pack(fill=tk.BOTH, expand=True)
         
         # Header with signature value
@@ -121,8 +122,9 @@ class OverlayPopup:
             )
             no_match.pack(anchor=tk.W)
         else:
-            for i, match in enumerate(matches):
-                self._add_match_row(frame, i + 1, match)
+            # Show first match with composition
+            match = matches[0]
+            self._add_match_with_composition(frame, match)
         
         # Close hint
         hint = tk.Label(
@@ -141,6 +143,193 @@ class OverlayPopup:
         elif value >= 1_000:
             return f"{value / 1_000:.0f}K"
         return str(value)
+    
+    def _add_match_with_composition(self, parent: tk.Frame, match: Dict[str, Any]):
+        """Add a match row with mineral composition breakdown."""
+        # Main container
+        container = tk.Frame(parent, bg=self.BG_COLOR)
+        container.pack(fill=tk.X, pady=int(3 * self.scale))
+        
+        # Rock type name and icon
+        match_type = match.get('type', 'unknown')
+        category = match.get('category', '')
+        
+        if category == 'asteroid' or 'Asteroid' in match.get('name', ''):
+            color = self.MINING_COLOR
+            icon = "🪨"
+        elif category == 'deposit' or 'Deposit' in match.get('name', ''):
+            color = self.MINING_COLOR
+            icon = "⛏️"
+        else:
+            color = self.FG_COLOR
+            icon = "📡"
+        
+        # Header row: Icon + Name + Value
+        header_row = tk.Frame(container, bg=self.BG_COLOR)
+        header_row.pack(fill=tk.X, pady=(0, int(5 * self.scale)))
+        
+        name = match.get('name', 'Unknown')
+        name_label = tk.Label(
+            header_row,
+            text=f"{icon} {name}",
+            font=self._scaled_font("Segoe UI", 12, "bold"),
+            fg=color,
+            bg=self.BG_COLOR,
+            anchor=tk.W
+        )
+        name_label.pack(side=tk.LEFT)
+        
+        # Estimated value
+        est_value = match.get('est_value')
+        if est_value:
+            value_label = tk.Label(
+                header_row,
+                text=f"~{self._format_value(est_value)} aUEC",
+                font=self._scaled_font("Consolas", 11, "bold"),
+                fg="#3fb950",  # Green for money
+                bg=self.BG_COLOR
+            )
+            value_label.pack(side=tk.RIGHT)
+        
+        # Composition table
+        composition = match.get('composition', [])
+        if composition:
+            # Table header
+            table_header = tk.Frame(container, bg=self.BG_LIGHT)
+            table_header.pack(fill=tk.X, pady=(int(5 * self.scale), 0))
+            
+            tk.Label(
+                table_header,
+                text="Mineral",
+                font=self._scaled_font("Consolas", 9, "bold"),
+                fg=self.MUTED_COLOR,
+                bg=self.BG_LIGHT,
+                width=14,
+                anchor=tk.W
+            ).pack(side=tk.LEFT, padx=(5, 0))
+            
+            tk.Label(
+                table_header,
+                text="Prob",
+                font=self._scaled_font("Consolas", 9, "bold"),
+                fg=self.MUTED_COLOR,
+                bg=self.BG_LIGHT,
+                width=6,
+                anchor=tk.E
+            ).pack(side=tk.LEFT)
+            
+            tk.Label(
+                table_header,
+                text="Med%",
+                font=self._scaled_font("Consolas", 9, "bold"),
+                fg=self.MUTED_COLOR,
+                bg=self.BG_LIGHT,
+                width=6,
+                anchor=tk.E
+            ).pack(side=tk.LEFT)
+            
+            tk.Label(
+                table_header,
+                text="Value",
+                font=self._scaled_font("Consolas", 9, "bold"),
+                fg=self.MUTED_COLOR,
+                bg=self.BG_LIGHT,
+                width=8,
+                anchor=tk.E
+            ).pack(side=tk.LEFT, padx=(0, 5))
+            
+            # Table rows (show ALL minerals)
+            for i, ore in enumerate(composition):
+                row_bg = self.BG_LIGHT if i % 2 == 0 else self.BG_COLOR
+                row = tk.Frame(container, bg=row_bg)
+                row.pack(fill=tk.X)
+                
+                # Color code by UEX price per SCU
+                ore_price = ore.get('price', 0)
+                ore_value = ore.get('value', 0)
+                
+                if ore_price >= 25000:
+                    ore_color = "#3fb950"      # Green - premium
+                elif ore_price >= 10000:
+                    ore_color = "#f0883e"      # Orange - medium
+                else:
+                    ore_color = "#f85149"      # Red - low
+                
+                # Mineral name
+                tk.Label(
+                    row,
+                    text=ore.get('name', '?'),
+                    font=self._scaled_font("Consolas", 9),
+                    fg=ore_color,
+                    bg=row_bg,
+                    width=14,
+                    anchor=tk.W
+                ).pack(side=tk.LEFT, padx=(5, 0))
+                
+                # Probability (grey)
+                prob = ore.get('prob', 0)
+                prob_text = f"{prob:.0%}" if prob <= 1 else f"{prob:.1f}x"
+                tk.Label(
+                    row,
+                    text=prob_text,
+                    font=self._scaled_font("Consolas", 9),
+                    fg=self.MUTED_COLOR,
+                    bg=row_bg,
+                    width=6,
+                    anchor=tk.E
+                ).pack(side=tk.LEFT)
+                
+                # Median percentage (grey)
+                med_pct = ore.get('medPct', 0)
+                tk.Label(
+                    row,
+                    text=f"{med_pct:.0%}",
+                    font=self._scaled_font("Consolas", 9),
+                    fg=self.MUTED_COLOR,
+                    bg=row_bg,
+                    width=6,
+                    anchor=tk.E
+                ).pack(side=tk.LEFT)
+                
+                # Value
+                value_text = self._format_value(ore_value) if ore_value > 0 else "-"
+                tk.Label(
+                    row,
+                    text=value_text,
+                    font=self._scaled_font("Consolas", 9),
+                    fg="#3fb950" if ore_value > 0 else self.MUTED_COLOR,
+                    bg=row_bg,
+                    width=8,
+                    anchor=tk.E
+                ).pack(side=tk.LEFT, padx=(0, 5))
+            
+            # Helper text
+            helper_frame = tk.Frame(container, bg=self.BG_COLOR)
+            helper_frame.pack(anchor=tk.W, pady=(int(5 * self.scale), 0))
+            
+            tk.Label(
+                helper_frame,
+                text="Prob = Probability that mineral will spawn",
+                font=self._scaled_font("Segoe UI", 8),
+                fg=self.MUTED_COLOR,
+                bg=self.BG_COLOR
+            ).pack(anchor=tk.W)
+            
+            tk.Label(
+                helper_frame,
+                text="Med% = Median amount of mineral if spawned",
+                font=self._scaled_font("Segoe UI", 8),
+                fg=self.MUTED_COLOR,
+                bg=self.BG_COLOR
+            ).pack(anchor=tk.W)
+            
+            tk.Label(
+                helper_frame,
+                text="Value = Average value of mineral if spawned",
+                font=self._scaled_font("Segoe UI", 8),
+                fg=self.MUTED_COLOR,
+                bg=self.BG_COLOR
+            ).pack(anchor=tk.W)
     
     def _add_match_row(self, parent: tk.Frame, rank: int, match: Dict[str, Any]):
         """Add a single match row."""

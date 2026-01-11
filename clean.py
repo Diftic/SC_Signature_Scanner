@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def clean():
-    """Remove __pycache__ directories and .pyc/.pyo files."""
+    """Remove __pycache__ directories, .pyc/.pyo files, and config.json."""
     root = Path(__file__).parent
     removed = 0
     
@@ -22,6 +22,13 @@ def clean():
             file.unlink()
             print(f"Removed: {file}")
             removed += 1
+    
+    # Remove config.json
+    config_file = root / "config.json"
+    if config_file.exists():
+        config_file.unlink()
+        print(f"Removed: {config_file}")
+        removed += 1
     
     print(f"\nCleaned {removed} items.")
 
