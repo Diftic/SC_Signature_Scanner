@@ -4,7 +4,11 @@ Signature scanner for SC Signature Scanner.
 Detects signature values from Star Citizen screenshots using cross detection.
 
 Algorithm:
-1. Find the cross (velocity/aim indicator) - pink/magenta colored
+1. Find the cross (velocity/aim indicator) - supports 4 color variants:
+   - Cyan/teal (Aegis, Anvil, Crusader, Origin)
+   - Orange/amber/yellow (Argo, Drake, MISC)
+   - Pink/magenta (RSI)
+   - Red (Xi'an)
 2. Calculate cross orientation → determines image rotation
 3. Rotate image to normalize (cross arms should be horizontal/vertical)
 4. Use cross size/position to calculate signature location (fixed offset above)
@@ -57,7 +61,7 @@ SIGNATURE_TO_ROCK_TYPE = {
 
 
 class SignatureScanner:
-    """Scans screenshots for signature values using red cross detection."""
+    """Scans screenshots for signature values using multi-color cross detection."""
     
     def __init__(self, db_path: Path, system: str = 'STANTON'):
         self.db = self._load_database(db_path)
@@ -243,12 +247,13 @@ class SignatureScanner:
     def _find_cross(self, img: Image.Image) -> Optional[Tuple[Tuple[int, int], int, float]]:
         """Find the cross (velocity/aim indicator).
         
-        The cross is PINK/MAGENTA colored with 4 chevron arms pointing outward.
-        The chevrons may be separate connected components, so we:
-        1. Find all pink/magenta clusters
-        2. Group nearby clusters that could form a cross
-        3. Find the group with cross-like geometry (roughly square bounding box)
-        4. Calculate angle from the topmost point
+        The cross chevrons come in 4 color variants depending on ship manufacturer:
+        - CYAN/TEAL: Aegis, Anvil, Crusader, Origin
+        - ORANGE/AMBER/YELLOW: Argo, Drake, MISC
+        - PINK/MAGENTA: RSI
+        - RED: Xi'an
+        
+        We detect all 4 color groups in a single pass.
         
         Returns:
             Tuple of (center_xy, size, angle_degrees) or None if not found.
@@ -264,14 +269,35 @@ class SignatureScanner:
         search = arr[y_min:y_max, x_min:x_max]
         r, g, b = search[:,:,0], search[:,:,1], search[:,:,2]
         
-        # Pink/magenta cross detection: high R, high B, lower G
-        cross_mask = (
-            (r > 170) &           # High red
-            (b > 170) &           # High blue
-            (r > g) &             # More red than green
-            (b > g) &             # More blue than green  
-            (g < 215)             # Green not too high (not white)
+        # 1. CYAN/TEAL: high G + high B, lower R (Aegis, Anvil, Crusader, Origin)
+        cyan_mask = (
+            (g > 150) & (b > 150) &
+            (r < g) & (r < b) &
+            ((g.astype(int) + b.astype(int)) > 350)
         )
+        
+        # 2. ORANGE/AMBER/YELLOW: high R, medium-high G, low B (Argo, Drake, MISC)
+        orange_mask = (
+            (r > 180) & (g > 100) & (b < 120) &
+            (r > b + 60)
+        )
+        
+        # 3. PINK/MAGENTA: high R + high B, lower G (RSI)
+        pink_mask = (
+            (r > 170) & (b > 170) &
+            (r > g) & (b > g) &
+            (g < 215)
+        )
+        
+        # 4. RED: high R, low G, low B (Xi'an)
+        red_mask = (
+            (r > 150) &
+            (r > g + 50) & (r > b + 50) &
+            (b < 120)
+        )
+        
+        # Combined mask - detect all manufacturer color variants
+        cross_mask = cyan_mask | orange_mask | pink_mask | red_mask
         
         if self.debug_mode:
             mask_img = Image.fromarray((cross_mask * 255).astype(np.uint8), mode='L')
@@ -280,7 +306,7 @@ class SignatureScanner:
         
         if not cross_mask.any():
             if self.debug_mode:
-                print("[DEBUG] No pink/magenta pixels found")
+                print("[DEBUG] No cross pixels found (checked cyan, orange, pink, red)")
             return None
         
         # Find connected components
