@@ -14,8 +14,6 @@ Algorithm:
 import json
 import math
 import re
-import subprocess
-import tempfile
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from PIL import Image, ImageOps
@@ -69,11 +67,6 @@ class SignatureScanner:
         self.debug_mode = False
         self.debug_dir = Path(__file__).parent / "debug_output"
         self.last_debug_info = {}
-        
-        # JXR conversion
-        self._jxr_tool_checked = False
-        self._jxr_tool_available = None
-        self._jxr_tool_path = None
     
     def _load_database(self, db_path: Path) -> Dict[str, Any]:
         """Load signature database."""
@@ -695,92 +688,8 @@ class SignatureScanner:
         if output_dir:
             self.debug_dir = output_dir
     
-    def _check_jxr_support(self) -> bool:
-        """Check if JXR conversion is available."""
-        if self._jxr_tool_checked:
-            return self._jxr_tool_available
-        
-        self._jxr_tool_checked = True
-        
-        import platform
-        if platform.system() == 'Windows':
-            self._jxr_tool_available = True
-            self._jxr_tool_path = 'wic'
-            return True
-        
-        try:
-            result = subprocess.run(['magick', '--version'], capture_output=True, timeout=5)
-            if result.returncode == 0:
-                self._jxr_tool_available = True
-                self._jxr_tool_path = 'magick'
-                return True
-        except:
-            pass
-        
-        self._jxr_tool_available = False
-        return False
-    
-    def _convert_jxr_to_png(self, jxr_path: Path) -> Optional[Path]:
-        """Convert JXR to PNG."""
-        if not self._check_jxr_support():
-            return None
-        
-        temp_dir = Path(tempfile.gettempdir()) / "sc_signature_scanner"
-        temp_dir.mkdir(exist_ok=True)
-        output_path = temp_dir / f"{jxr_path.stem}.png"
-        
-        try:
-            if self._jxr_tool_path == 'wic':
-                ps_script = f'''
-Add-Type -AssemblyName PresentationCore
-try {{
-    $stream = [System.IO.File]::OpenRead("{jxr_path}")
-    $decoder = New-Object System.Windows.Media.Imaging.WmpBitmapDecoder(
-        $stream, [System.Windows.Media.Imaging.BitmapCreateOptions]::None,
-        [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad)
-    $frame = $decoder.Frames[0]
-    $converted = New-Object System.Windows.Media.Imaging.FormatConvertedBitmap
-    $converted.BeginInit()
-    $converted.Source = $frame
-    $converted.DestinationFormat = [System.Windows.Media.PixelFormats]::Rgb24
-    $converted.EndInit()
-    $encoder = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
-    $encoder.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($converted))
-    $outStream = [System.IO.File]::Create("{output_path}")
-    $encoder.Save($outStream)
-    $outStream.Close()
-    $stream.Close()
-    Write-Output "SUCCESS"
-}} catch {{ Write-Error $_.Exception.Message; exit 1 }}
-'''
-                result = subprocess.run(
-                    ['powershell', '-ExecutionPolicy', 'Bypass', '-Command', ps_script],
-                    capture_output=True, text=True, timeout=60
-                )
-                if 'SUCCESS' not in result.stdout:
-                    return None
-            elif self._jxr_tool_path == 'magick':
-                result = subprocess.run(
-                    ['magick', str(jxr_path), str(output_path)],
-                    capture_output=True, timeout=30
-                )
-                if result.returncode != 0:
-                    return None
-            
-            return output_path if output_path.exists() else None
-        except:
-            return None
-    
     def _load_image(self, image_path: Path) -> Optional[Image.Image]:
-        """Load an image, converting JXR if needed."""
-        suffix = image_path.suffix.lower()
-        
-        if suffix in ['.jxr', '.hdp', '.wdp']:
-            png_path = self._convert_jxr_to_png(image_path)
-            if png_path:
-                return Image.open(png_path)
-            return None
-        
+        """Load an image."""
         return Image.open(image_path)
 
 

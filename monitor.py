@@ -15,7 +15,7 @@ from watchdog.events import FileSystemEventHandler, FileCreatedEvent
 class ScreenshotHandler(FileSystemEventHandler):
     """Handler for new screenshot files."""
     
-    VALID_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.jxr', '.hdp', '.wdp', '.webp', '.bmp'}
+    VALID_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp'}
     
     def __init__(self, callback: Callable[[Path], None], ignore_files: Set[Path] = None):
         super().__init__()

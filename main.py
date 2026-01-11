@@ -885,9 +885,6 @@ Contributed to Regolith.Rocks"""
         self.processed_files = set(Path(folder).glob("*.png"))
         self.processed_files.update(Path(folder).glob("*.jpg"))
         self.processed_files.update(Path(folder).glob("*.jpeg"))
-        self.processed_files.update(Path(folder).glob("*.jxr"))
-        self.processed_files.update(Path(folder).glob("*.hdp"))
-        self.processed_files.update(Path(folder).glob("*.wdp"))
         self.screenshot_count = 0
         
         # Start monitor
@@ -993,10 +990,9 @@ Contributed to Regolith.Rocks"""
         filepath = filedialog.askopenfilename(
             title="Select Screenshot to Test",
             filetypes=[
-                ("All supported", "*.png *.jpg *.jpeg *.jxr *.hdp *.wdp"),
+                ("Image files", "*.png *.jpg *.jpeg"),
                 ("PNG files", "*.png"),
                 ("JPEG files", "*.jpg *.jpeg"),
-                ("JPEG XR files", "*.jxr *.hdp *.wdp"),
             ]
         )
         if filepath:
@@ -1091,12 +1087,6 @@ Contributed to Regolith.Rocks"""
         if db_path.exists():
             self.scanner = SignatureScanner(db_path)
             self._log(f"✓ Signature database loaded")
-            
-            # Check JXR support
-            if self.scanner._check_jxr_support():
-                self._log(f"✓ JXR support: {self.scanner._jxr_tool_path}")
-            else:
-                self._log("⚠ JXR not supported (install ImageMagick)")
         else:
             self._log("⚠ Signature database not found!")
             self._log(f"  Expected: {db_path}")

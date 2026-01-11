@@ -30,6 +30,13 @@ def clean():
         print(f"Removed: {config_file}")
         removed += 1
     
+    # Remove jxr_converter.py (deprecated)
+    jxr_file = root / "jxr_converter.py"
+    if jxr_file.exists():
+        jxr_file.unlink()
+        print(f"Removed: {jxr_file}")
+        removed += 1
+    
     print(f"\nCleaned {removed} items.")
 
 
