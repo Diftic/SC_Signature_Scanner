@@ -124,79 +124,21 @@ class RegionSelector:
         self.root.title("Define Scan Region")
         self.root.configure(bg='#1a1a2e')
         
-        # Calculate display size (fit to screen with margin)
-        screen_w = self.root.winfo_screenwidth() - 100
-        screen_h = self.root.winfo_screenheight() - 200
+        # Set fullscreen
+        self.root.attributes('-fullscreen', True)
+        self.root.bind('<Escape>', lambda e: self._cancel())
+        
+        # Get screen size
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
         
         img_w, img_h = self.original_image.size
         
-        # Scale to fit
-        scale_w = screen_w / img_w
-        scale_h = screen_h / img_h
-        self.scale_factor = min(scale_w, scale_h, 1.0)  # Don't upscale
+        # === LAYOUT: Bottom-anchored buttons, canvas fills remaining space ===
         
-        display_w = int(img_w * self.scale_factor)
-        display_h = int(img_h * self.scale_factor)
-        
-        # Instructions
-        instructions = tk.Label(
-            self.root,
-            text="Click and drag to define the scan region around where signatures appear",
-            bg='#1a1a2e',
-            fg='#f4a259',
-            font=('Segoe UI', 10)
-        )
-        instructions.pack(pady=(10, 5))
-        
-        # Canvas for image
-        self.canvas = tk.Canvas(
-            self.root,
-            width=display_w,
-            height=display_h,
-            bg='#0d0d1a',
-            highlightthickness=1,
-            highlightbackground='#333'
-        )
-        self.canvas.pack(padx=10, pady=5)
-        
-        # Display scaled image
-        display_img = self.original_image.resize((display_w, display_h), Image.Resampling.LANCZOS)
-        self.display_image = ImageTk.PhotoImage(display_img)
-        self.canvas.create_image(0, 0, anchor=tk.NW, image=self.display_image)
-        
-        # Load existing region if any
-        existing = load_region()
-        if existing:
-            x1, y1, x2, y2 = existing
-            self.selection = existing
-            self._draw_rect(
-                int(x1 * self.scale_factor),
-                int(y1 * self.scale_factor),
-                int(x2 * self.scale_factor),
-                int(y2 * self.scale_factor)
-            )
-        
-        # Bindings
-        self.canvas.bind('<Button-1>', self._on_press)
-        self.canvas.bind('<B1-Motion>', self._on_drag)
-        self.canvas.bind('<ButtonRelease-1>', self._on_release)
-        
-        # Info label
-        self.info_label = tk.Label(
-            self.root,
-            text="No region selected",
-            bg='#1a1a2e',
-            fg='#888',
-            font=('Consolas', 9)
-        )
-        self.info_label.pack(pady=5)
-        
-        if existing:
-            self._update_info()
-        
-        # Buttons
+        # Bottom section: Buttons (pack first with side=BOTTOM)
         btn_frame = tk.Frame(self.root, bg='#1a1a2e')
-        btn_frame.pack(pady=10)
+        btn_frame.pack(side=tk.BOTTOM, pady=15)
         
         save_btn = tk.Button(
             btn_frame,
@@ -228,7 +170,7 @@ class RegionSelector:
         
         cancel_btn = tk.Button(
             btn_frame,
-            text="Cancel",
+            text="Cancel (Esc)",
             bg='#333',
             fg='#aaa',
             font=('Segoe UI', 10),
@@ -240,13 +182,74 @@ class RegionSelector:
         )
         cancel_btn.pack(side=tk.LEFT)
         
-        # Center window
-        self.root.update_idletasks()
-        win_w = self.root.winfo_width()
-        win_h = self.root.winfo_height()
-        x = (self.root.winfo_screenwidth() - win_w) // 2
-        y = (self.root.winfo_screenheight() - win_h) // 2
-        self.root.geometry(f"+{x}+{y}")
+        # Info label (above buttons)
+        self.info_label = tk.Label(
+            self.root,
+            text="No region selected",
+            bg='#1a1a2e',
+            fg='#888',
+            font=('Consolas', 9)
+        )
+        self.info_label.pack(side=tk.BOTTOM, pady=(0, 5))
+        
+        # Top section: Instructions
+        instructions = tk.Label(
+            self.root,
+            text="Click and drag to define the scan region around where signatures appear",
+            bg='#1a1a2e',
+            fg='#f4a259',
+            font=('Segoe UI', 10)
+        )
+        instructions.pack(side=tk.TOP, pady=(10, 5))
+        
+        # Calculate available space for canvas (after UI elements)
+        # Buttons ~50px, info ~25px, instructions ~30px, padding ~40px = ~145px
+        ui_height = 150
+        available_h = screen_h - ui_height
+        
+        scale_w = screen_w / img_w
+        scale_h = available_h / img_h
+        self.scale_factor = min(scale_w, scale_h, 1.0)  # Don't upscale
+        
+        display_w = int(img_w * self.scale_factor)
+        display_h = int(img_h * self.scale_factor)
+        
+        # Middle section: Canvas (fills remaining space)
+        canvas_frame = tk.Frame(self.root, bg='#1a1a2e')
+        canvas_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        self.canvas = tk.Canvas(
+            canvas_frame,
+            width=display_w,
+            height=display_h,
+            bg='#0d0d1a',
+            highlightthickness=1,
+            highlightbackground='#333'
+        )
+        self.canvas.pack(expand=True)  # Center canvas in frame
+        
+        # Display scaled image
+        display_img = self.original_image.resize((display_w, display_h), Image.Resampling.LANCZOS)
+        self.display_image = ImageTk.PhotoImage(display_img)
+        self.canvas.create_image(0, 0, anchor=tk.NW, image=self.display_image)
+        
+        # Load existing region if any
+        existing = load_region()
+        if existing:
+            x1, y1, x2, y2 = existing
+            self.selection = existing
+            self._draw_rect(
+                int(x1 * self.scale_factor),
+                int(y1 * self.scale_factor),
+                int(x2 * self.scale_factor),
+                int(y2 * self.scale_factor)
+            )
+            self._update_info()
+        
+        # Bindings
+        self.canvas.bind('<Button-1>', self._on_press)
+        self.canvas.bind('<B1-Motion>', self._on_drag)
+        self.canvas.bind('<ButtonRelease-1>', self._on_release)
         
         # Make modal if has parent
         if self.parent:

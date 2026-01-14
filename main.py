@@ -33,6 +33,7 @@ from theme import RegolithTheme, WarningBanner, StatusIndicator
 import pricing
 import version_checker
 import region_selector
+import regolith_api
 
 
 class SCSignatureScannerApp:
@@ -50,7 +51,7 @@ class SCSignatureScannerApp:
         
         # Center window on screen - wider layout
         window_width = 850
-        window_height = 700
+        window_height = 850
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         x = (screen_width - window_width) // 2
@@ -70,6 +71,7 @@ class SCSignatureScannerApp:
         self.processed_files = set()
         self.overlay_position: Optional[Tuple[int, int]] = None
         self.screenshot_count = 0
+        self.regolith_user: Optional[str] = None
         
         # Build UI
         self._create_ui()
@@ -576,126 +578,216 @@ class SCSignatureScannerApp:
         )
         self.scale_display.pack(side=tk.LEFT, padx=(10, 0))
         
-        # === Row 3: Refinery Yield + Pricing Data (side by side) ===
+        # === Row 3: Refinery Method + Data Sources (side by side) ===
         row3 = tk.Frame(settings_content, bg=colors['bg_main'])
         row3.pack(fill=tk.X, pady=(0, 10))
         
-        # Left: Refinery Yield
-        yield_frame = tk.Frame(row3, bg=colors['bg_main'])
-        yield_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        # Left: Refinery Method
+        method_frame = tk.Frame(row3, bg=colors['bg_main'])
+        method_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
         
-        yield_label = tk.Label(
-            yield_frame,
-            text="REFINERY YIELD",
+        method_label = tk.Label(
+            method_frame,
+            text="REFINERY METHOD",
             bg=colors['bg_main'],
             fg=colors['accent_primary'],
             font=fonts['subheading']
         )
-        yield_label.pack(anchor=tk.W, pady=(0, 5))
+        method_label.pack(anchor=tk.W, pady=(0, 5))
         
-        yield_border = tk.Frame(yield_frame, bg=colors['border'])
-        yield_border.pack(fill=tk.BOTH, expand=True)
+        method_border = tk.Frame(method_frame, bg=colors['border'])
+        method_border.pack(fill=tk.BOTH, expand=True)
         
-        yield_inner = tk.Frame(yield_border, bg=colors['bg_light'], padx=12, pady=10)
-        yield_inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+        method_inner = tk.Frame(method_border, bg=colors['bg_light'], padx=12, pady=10)
+        method_inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
         
-        yield_row = tk.Frame(yield_inner, bg=colors['bg_light'])
-        yield_row.pack(fill=tk.X, pady=(5, 0))
-        
-        self.yield_var = tk.DoubleVar(value=0.5)
-        
-        yield_label_min = tk.Label(
-            yield_row,
-            text="0%",
+        method_desc = tk.Label(
+            method_inner,
+            text="Affects value estimates",
             bg=colors['bg_light'],
             fg=colors['text_muted'],
             font=fonts['small']
         )
-        yield_label_min.pack(side=tk.LEFT)
+        method_desc.pack(anchor=tk.W, pady=(0, 6))
         
-        def update_yield_label(val):
-            pct = int(float(val) * 100)
-            self.yield_display.configure(text=f"{pct}%")
+        # Refinery methods with yields
+        self.refinery_methods = {
+            'Dinyx Solventation (52.93%)': 0.5293,
+            'Ferron Exchange (52.93%)': 0.5293,
+            'Pyrometric Chromalysis (52.93%)': 0.5293,
+            'Electrostarolysis (45%)': 0.45,
+            'Gaskin Process (45%)': 0.45,
+            'Thermonatic Deposition (45%)': 0.45,
+            'Cormack (37.05%)': 0.3705,
+            'Kazen Winnowing (37.05%)': 0.3705,
+            'XCR Reaction (37.05%)': 0.3705,
+        }
         
-        yield_slider = tk.Scale(
-            yield_row,
-            from_=0.0,
-            to=1.0,
-            resolution=0.05,
-            orient=tk.HORIZONTAL,
-            variable=self.yield_var,
-            bg=colors['bg_light'],
-            fg=colors['text_primary'],
-            highlightthickness=0,
-            troughcolor=colors['bg_dark'],
-            activebackground=colors['accent_primary'],
-            length=150,
-            showvalue=False,
-            command=update_yield_label
-        )
-        yield_slider.pack(side=tk.LEFT, padx=(5, 5))
+        method_row = tk.Frame(method_inner, bg=colors['bg_light'])
+        method_row.pack(fill=tk.X)
         
-        yield_label_max = tk.Label(
-            yield_row,
-            text="100%",
-            bg=colors['bg_light'],
-            fg=colors['text_muted'],
-            font=fonts['small']
-        )
-        yield_label_max.pack(side=tk.LEFT)
-        
-        self.yield_display = tk.Label(
-            yield_row,
-            text="50%",
-            bg=colors['bg_light'],
-            fg=colors['cyan'],
-            font=fonts['mono']
-        )
-        self.yield_display.pack(side=tk.LEFT, padx=(10, 0))
-        
-        # Right: Pricing Data
-        pricing_frame = tk.Frame(row3, bg=colors['bg_main'])
-        pricing_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
-        
-        pricing_label = tk.Label(
-            pricing_frame,
-            text="PRICING DATA",
-            bg=colors['bg_main'],
-            fg=colors['accent_primary'],
-            font=fonts['subheading']
-        )
-        pricing_label.pack(anchor=tk.W, pady=(0, 5))
-        
-        pricing_border = tk.Frame(pricing_frame, bg=colors['border'])
-        pricing_border.pack(fill=tk.BOTH, expand=True)
-        
-        pricing_inner = tk.Frame(pricing_border, bg=colors['bg_light'], padx=12, pady=10)
-        pricing_inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
-        
-        pricing_row = tk.Frame(pricing_inner, bg=colors['bg_light'])
-        pricing_row.pack(fill=tk.X, pady=(5, 0))
-        
-        pricing_status_text = tk.Label(
-            pricing_row,
-            text="Status:",
-            bg=colors['bg_light'],
-            fg=colors['text_secondary'],
+        self.method_var = tk.StringVar(value='Dinyx Solventation (52.93%)')
+        method_combo = ttk.Combobox(
+            method_row,
+            textvariable=self.method_var,
+            values=list(self.refinery_methods.keys()),
+            state='readonly',
+            width=28,
             font=fonts['body']
         )
-        pricing_status_text.pack(side=tk.LEFT)
+        method_combo.pack(side=tk.LEFT)
+        method_combo.bind('<<ComboboxSelected>>', self._on_method_changed)
         
-        self.pricing_status_label = tk.Label(
-            pricing_row,
-            text="Not loaded",
+        # Right: Data Sources
+        data_frame = tk.Frame(row3, bg=colors['bg_main'])
+        data_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
+        
+        data_label = tk.Label(
+            data_frame,
+            text="DATA SOURCES",
+            bg=colors['bg_main'],
+            fg=colors['accent_primary'],
+            font=fonts['subheading']
+        )
+        data_label.pack(anchor=tk.W, pady=(0, 5))
+        
+        data_border = tk.Frame(data_frame, bg=colors['border'])
+        data_border.pack(fill=tk.BOTH, expand=True)
+        
+        data_inner = tk.Frame(data_border, bg=colors['bg_light'], padx=12, pady=10)
+        data_inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+        
+        # Regolith status row
+        data_row1 = tk.Frame(data_inner, bg=colors['bg_light'])
+        data_row1.pack(fill=tk.X, pady=(0, 4))
+        
+        regolith_text = tk.Label(
+            data_row1,
+            text="🔑 Regolith:",
+            bg=colors['bg_light'],
+            fg=colors['text_secondary'],
+            font=fonts['small']
+        )
+        regolith_text.pack(side=tk.LEFT)
+        
+        self.api_status_label = tk.Label(
+            data_row1,
+            text="--",
             bg=colors['bg_light'],
             fg=colors['text_muted'],
-            font=fonts['mono']
+            font=fonts['small']
         )
-        self.pricing_status_label.pack(side=tk.LEFT, padx=(8, 15))
+        self.api_status_label.pack(side=tk.LEFT, padx=(5, 10))
         
-        refresh_pricing_btn = tk.Button(
-            pricing_row,
-            text="🔄  Refresh",
+        self.regolith_cache_label = tk.Label(
+            data_row1,
+            text="",
+            bg=colors['bg_light'],
+            fg=colors['text_muted'],
+            font=fonts['small']
+        )
+        self.regolith_cache_label.pack(side=tk.LEFT)
+        
+        # UEX status row
+        data_row2 = tk.Frame(data_inner, bg=colors['bg_light'])
+        data_row2.pack(fill=tk.X, pady=(0, 6))
+        
+        uex_text = tk.Label(
+            data_row2,
+            text="💰 UEX:",
+            bg=colors['bg_light'],
+            fg=colors['text_secondary'],
+            font=fonts['small']
+        )
+        uex_text.pack(side=tk.LEFT)
+        
+        self.pricing_status_label = tk.Label(
+            data_row2,
+            text="--",
+            bg=colors['bg_light'],
+            fg=colors['text_muted'],
+            font=fonts['small']
+        )
+        self.pricing_status_label.pack(side=tk.LEFT, padx=(5, 0))
+        
+        # Buttons row
+        data_row3 = tk.Frame(data_inner, bg=colors['bg_light'])
+        data_row3.pack(fill=tk.X)
+        
+        change_key_btn = tk.Button(
+            data_row3,
+            text="🔑 Key",
+            bg=colors['bg_hover'],
+            fg=colors['text_primary'],
+            font=fonts['small'],
+            relief='flat',
+            padx=6,
+            pady=2,
+            cursor='hand2',
+            command=self._change_api_key
+        )
+        change_key_btn.pack(side=tk.LEFT, padx=(0, 5))
+        
+        refresh_all_btn = tk.Button(
+            data_row3,
+            text="🔄 Refresh",
+            bg=colors['cyan'],
+            fg=colors['bg_dark'],
+            font=('Segoe UI', 8, 'bold'),
+            relief='flat',
+            padx=6,
+            pady=2,
+            cursor='hand2',
+            command=self._refresh_all_data
+        )
+        refresh_all_btn.pack(side=tk.LEFT)
+        
+        # === Row 5: Debug Output Folder (full width) ===
+        row5 = tk.Frame(settings_content, bg=colors['bg_main'])
+        row5.pack(fill=tk.X, pady=(0, 10))
+        
+        debug_folder_label = tk.Label(
+            row5,
+            text="DEBUG OUTPUT FOLDER",
+            bg=colors['bg_main'],
+            fg=colors['accent_primary'],
+            font=fonts['subheading']
+        )
+        debug_folder_label.pack(anchor=tk.W, pady=(0, 5))
+        
+        debug_folder_border = tk.Frame(row5, bg=colors['border'])
+        debug_folder_border.pack(fill=tk.X)
+        
+        debug_folder_inner = tk.Frame(debug_folder_border, bg=colors['bg_light'], padx=12, pady=10)
+        debug_folder_inner.pack(fill=tk.X, padx=1, pady=1)
+        
+        debug_folder_desc = tk.Label(
+            debug_folder_inner,
+            text="Where debug images are saved (for testing/troubleshooting)",
+            bg=colors['bg_light'],
+            fg=colors['text_muted'],
+            font=fonts['small']
+        )
+        debug_folder_desc.pack(anchor=tk.W, pady=(0, 6))
+        
+        debug_folder_row = tk.Frame(debug_folder_inner, bg=colors['bg_light'])
+        debug_folder_row.pack(fill=tk.X)
+        
+        self.debug_folder_var = tk.StringVar()
+        debug_folder_entry = tk.Entry(
+            debug_folder_row,
+            textvariable=self.debug_folder_var,
+            bg=colors['bg_dark'],
+            fg=colors['text_primary'],
+            font=fonts['mono_small'],
+            relief='flat',
+            insertbackground=colors['accent_primary']
+        )
+        debug_folder_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8), pady=2)
+        
+        browse_debug_btn = tk.Button(
+            debug_folder_row,
+            text="📁  Browse",
             bg=colors['cyan'],
             fg=colors['bg_dark'],
             font=('Segoe UI', 9, 'bold'),
@@ -703,16 +795,30 @@ class SCSignatureScannerApp:
             padx=10,
             pady=4,
             cursor='hand2',
-            command=self._refresh_pricing
+            command=self._browse_debug_folder
         )
-        refresh_pricing_btn.pack(side=tk.LEFT)
+        browse_debug_btn.pack(side=tk.LEFT, padx=(0, 8))
         
-        # === Row 4: Debug Mode + Action Buttons ===
-        row4 = tk.Frame(settings_content, bg=colors['bg_main'])
-        row4.pack(fill=tk.X, pady=(0, 10))
+        reset_debug_folder_btn = tk.Button(
+            debug_folder_row,
+            text="↺  Reset",
+            bg=colors['bg_hover'],
+            fg=colors['text_primary'],
+            font=fonts['body'],
+            relief='flat',
+            padx=10,
+            pady=4,
+            cursor='hand2',
+            command=self._reset_debug_folder
+        )
+        reset_debug_folder_btn.pack(side=tk.LEFT)
+        
+        # === Row 6: Debug Mode + Action Buttons ===
+        row6 = tk.Frame(settings_content, bg=colors['bg_main'])
+        row6.pack(fill=tk.X, pady=(0, 10))
         
         # Left: Debug Mode
-        debug_frame = tk.Frame(row4, bg=colors['bg_main'])
+        debug_frame = tk.Frame(row6, bg=colors['bg_main'])
         debug_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
         
         debug_label = tk.Label(
@@ -763,7 +869,7 @@ class SCSignatureScannerApp:
         open_debug_btn.pack(side=tk.RIGHT)
         
         # Right: Action Buttons
-        action_frame = tk.Frame(row4, bg=colors['bg_main'])
+        action_frame = tk.Frame(row6, bg=colors['bg_main'])
         action_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 0))
         
         action_label = tk.Label(
@@ -1231,6 +1337,11 @@ class SCSignatureScannerApp:
         """Toggle debug mode on/off."""
         enabled = self.debug_var.get()
         if self.scanner:
+            # Apply current debug folder setting
+            debug_folder = self.debug_folder_var.get()
+            if debug_folder:
+                self.scanner.debug_dir = Path(debug_folder)
+            
             self.scanner.enable_debug(enabled)
             if enabled:
                 self._log("🔧 Debug mode ENABLED")
@@ -1257,6 +1368,25 @@ class SCSignatureScannerApp:
             
             self._log(f"📂 Opened: {debug_dir}")
     
+    def _browse_debug_folder(self):
+        """Browse for debug output folder."""
+        folder = filedialog.askdirectory(title="Select Debug Output Folder")
+        if folder:
+            self.debug_folder_var.set(folder)
+            if self.scanner:
+                self.scanner.debug_dir = Path(folder)
+            self._log(f"📁 Debug folder: {folder}")
+            self._save_config(show_message=False)
+    
+    def _reset_debug_folder(self):
+        """Reset debug folder to default."""
+        default_dir = paths.get_debug_path()
+        self.debug_folder_var.set(str(default_dir))
+        if self.scanner:
+            self.scanner.debug_dir = default_dir
+        self._log(f"📁 Debug folder reset to default")
+        self._save_config(show_message=False)
+    
     def _init_pricing(self):
         """Initialize pricing system on startup."""
         self._log("Loading pricing data...")
@@ -1270,10 +1400,25 @@ class SCSignatureScannerApp:
             self._log(f"  Systems: {', '.join(status['systems'])}")
             self._update_pricing_status()
             
-            pricing.set_refinery_yield(self.yield_var.get())
+            # Set yield from selected refinery method
+            yield_value = self._get_current_yield()
+            pricing.set_refinery_yield(yield_value)
         else:
             self._log(f"⚠ Pricing failed: {error}")
             self._update_pricing_status()
+    
+    def _on_method_changed(self, event=None):
+        """Handle refinery method selection change."""
+        method = self.method_var.get()
+        yield_value = self.refinery_methods.get(method, 0.5293)
+        pricing.set_refinery_yield(yield_value)
+        self._log(f"⚙ Refinery method: {method.split(' (')[0]} ({yield_value:.2%})")
+        self._save_config(show_message=False)
+    
+    def _get_current_yield(self) -> float:
+        """Get the yield value for the currently selected refinery method."""
+        method = self.method_var.get()
+        return self.refinery_methods.get(method, 0.5293)
     
     def _check_for_updates(self):
         """Check for updates in background thread."""
@@ -1320,6 +1465,105 @@ class SCSignatureScannerApp:
             self._log(f"⚠ Refresh failed: {error}")
             self._update_pricing_status()
             messagebox.showerror("Pricing Error", f"Failed to refresh pricing data:\n{error}")
+    
+    def _change_api_key(self):
+        """Allow user to change their API key."""
+        cfg = self.config.load() or {}
+        current_key = cfg.get('regolith_api_key', '')
+        
+        new_key = self._show_api_key_dialog(current_key)
+        
+        if new_key and new_key != current_key:
+            # Validate the new key
+            api = regolith_api.get_api(new_key)
+            valid, message = api.validate_key()
+            
+            if valid:
+                cfg['regolith_api_key'] = new_key
+                self.config.save(cfg)
+                self.regolith_user = message
+                self._log(f"✓ API key updated: {message}")
+                self._update_api_status()
+                messagebox.showinfo("API Key", f"API key validated successfully!\n\nLogged in as: {message}")
+            else:
+                self._log(f"⚠ API key invalid: {message}")
+                messagebox.showerror("Invalid Key", f"API key validation failed:\n{message}")
+    
+    def _refresh_all_data(self):
+        """Refresh both UEX pricing and Regolith survey data."""
+        self._log("Refreshing all data...")
+        
+        errors = []
+        
+        # Refresh Regolith data
+        cfg = self.config.load() or {}
+        api_key = cfg.get('regolith_api_key', '')
+        
+        if api_key:
+            api = regolith_api.get_api(api_key)
+            success, message = api.refresh_cache()
+            if success:
+                self._log(f"✓ Regolith data refreshed")
+            else:
+                self._log(f"⚠ Regolith refresh failed: {message}")
+                errors.append(f"Regolith: {message}")
+        else:
+            errors.append("Regolith: No API key configured")
+        
+        # Refresh UEX pricing
+        success, error = pricing.refresh_pricing()
+        if success:
+            manager = pricing.get_pricing_manager()
+            status = manager.get_status()
+            self._log(f"✓ UEX pricing refreshed: {status['ore_count']} ores")
+        else:
+            self._log(f"⚠ UEX refresh failed: {error}")
+            errors.append(f"UEX: {error}")
+        
+        # Update UI
+        self._update_pricing_status()
+        self._update_api_status()
+        
+        if errors:
+            messagebox.showwarning(
+                "Partial Refresh",
+                f"Some data sources failed to refresh:\n\n" + "\n".join(errors)
+            )
+        else:
+            messagebox.showinfo("Data Refreshed", "All data sources refreshed successfully!")
+    
+    def _update_api_status(self):
+        """Update the API status labels."""
+        colors = RegolithTheme.COLORS
+        
+        # Check if we have a valid user
+        if hasattr(self, 'regolith_user') and self.regolith_user:
+            self.api_status_label.configure(
+                text=self.regolith_user,
+                fg=colors['success']
+            )
+        else:
+            self.api_status_label.configure(
+                text="Not validated",
+                fg=colors['text_muted']
+            )
+        
+        # Update cache age
+        cfg = self.config.load() or {}
+        api_key = cfg.get('regolith_api_key', '')
+        
+        if api_key:
+            api = regolith_api.get_api(api_key)
+            cache_age = api.get_cache_age_str()
+            self.regolith_cache_label.configure(
+                text=f"Cache: {cache_age}",
+                fg=colors['text_secondary'] if api.is_cache_valid() else colors['warning']
+            )
+        else:
+            self.regolith_cache_label.configure(
+                text="Cache: --",
+                fg=colors['text_muted']
+            )
     
     def _update_pricing_status(self):
         """Update the pricing status label."""
@@ -1394,15 +1638,30 @@ class SCSignatureScannerApp:
     def _load_config(self):
         """Load saved configuration."""
         cfg = self.config.load()
+        
+        # Set default debug folder
+        default_debug_dir = paths.get_debug_path()
+        self.debug_folder_var.set(str(default_debug_dir))
+        
         if cfg:
             self.folder_var.set(cfg.get('screenshot_folder', ''))
             self.duration_var.set(cfg.get('popup_duration', 10))
             self.scale_var.set(cfg.get('popup_scale', 1.0))
-            self.yield_var.set(cfg.get('refinery_yield', 0.5))
             self.debug_var.set(cfg.get('debug_mode', False))
             
+            # Load refinery method
+            saved_method = cfg.get('refinery_method', 'Dinyx Solventation (52.93%)')
+            if saved_method in self.refinery_methods:
+                self.method_var.set(saved_method)
+            
+            # Load debug folder
+            debug_folder = cfg.get('debug_folder', '')
+            if debug_folder and Path(debug_folder).exists():
+                self.debug_folder_var.set(debug_folder)
+                if self.scanner:
+                    self.scanner.debug_dir = Path(debug_folder)
+            
             self.scale_display.configure(text=f"{self.scale_var.get():.0%}")
-            self.yield_display.configure(text=f"{int(self.yield_var.get() * 100)}%")
             
             pos_x = cfg.get('popup_position_x')
             pos_y = cfg.get('popup_position_y')
@@ -1422,15 +1681,17 @@ class SCSignatureScannerApp:
             'screenshot_folder': self.folder_var.get(),
             'popup_duration': self.duration_var.get(),
             'popup_scale': self.scale_var.get(),
-            'refinery_yield': self.yield_var.get(),
+            'refinery_method': self.method_var.get(),
             'debug_mode': self.debug_var.get(),
+            'debug_folder': self.debug_folder_var.get(),
         }
         
         if self.overlay_position:
             cfg['popup_position_x'] = self.overlay_position[0]
             cfg['popup_position_y'] = self.overlay_position[1]
         
-        pricing.set_refinery_yield(self.yield_var.get())
+        # Update pricing yield from current method
+        pricing.set_refinery_yield(self._get_current_yield())
         
         self.config.save(cfg)
         self._log("💾 Settings saved")
@@ -1440,7 +1701,295 @@ class SCSignatureScannerApp:
     def run(self):
         """Run the application."""
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        
+        # Validate API key before showing main window
+        if not self._validate_api_key_startup():
+            self.root.destroy()
+            return
+        
         self.root.mainloop()
+    
+    def _validate_api_key_startup(self) -> bool:
+        """Validate API key on startup. Returns True if valid, False to exit."""
+        cfg = self.config.load() or {}
+        api_key = cfg.get('regolith_api_key', '')
+        error_message = None
+        
+        while True:
+            if api_key:
+                # Try to validate existing key (with retry)
+                valid, message = self._validate_key_with_retry(api_key)
+                
+                if valid:
+                    self._log(f"✓ API key valid: {message}")
+                    self.regolith_user = message
+                    
+                    # Check/update cache
+                    api = regolith_api.get_api(api_key)
+                    self._check_regolith_cache(api)
+                    
+                    # Update UI status
+                    self._update_api_status()
+                    return True
+                else:
+                    self._log(f"⚠ API key invalid: {message}")
+                    error_message = message
+            
+            # Show API key dialog
+            result = self._show_api_key_dialog(api_key, error_message)
+            
+            if result is None:
+                # User cancelled
+                return False
+            
+            api_key = result
+            
+            # Save the new key
+            cfg['regolith_api_key'] = api_key
+            self.config.save(cfg)
+    
+    def _validate_key_with_retry(self, api_key: str) -> tuple:
+        """Validate API key with one retry after 3 seconds on failure.
+        
+        Returns:
+            Tuple of (is_valid, message)
+        """
+        self._log("Validating Regolith.rocks API key...")
+        api = regolith_api.get_api(api_key)
+        
+        # First attempt
+        valid, message = api.validate_key()
+        
+        if valid:
+            return True, message
+        
+        # Check if it's a server/connection error (worth retrying)
+        retry_errors = ["server error", "timed out", "connect", "connection"]
+        should_retry = any(err in message.lower() for err in retry_errors)
+        
+        if not should_retry:
+            # Don't retry for auth errors like "Invalid API key"
+            return False, message
+        
+        # Wait and retry
+        self._log(f"Connection issue: {message}")
+        self._log("Retrying in 3 seconds...")
+        time.sleep(3)
+        
+        # Second attempt
+        valid, message = api.validate_key()
+        
+        if valid:
+            self._log("Retry successful")
+            return True, message
+        else:
+            return False, f"{message} (after retry)"
+    
+    def _check_regolith_cache(self, api: regolith_api.RegolithAPI):
+        """Check Regolith cache and refresh if needed."""
+        if api.is_cache_valid():
+            age = api.get_cache_age_str()
+            self._log(f"✓ Regolith cache valid ({age})")
+        else:
+            self._log("Regolith cache expired, refreshing...")
+            success, message = api.refresh_cache()
+            if success:
+                self._log(f"✓ {message}")
+            else:
+                self._log(f"⚠ Cache refresh failed: {message}")
+    
+    def _show_api_key_dialog(self, current_key: str = "", error_msg: str = None) -> str:
+        """Show dialog to enter API key. Returns key or None if cancelled."""
+        colors = RegolithTheme.COLORS
+        fonts = RegolithTheme.FONTS
+        
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Regolith.rocks API Key Required")
+        dialog.configure(bg=colors['bg_main'])
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Center on screen
+        dialog_width = 500
+        dialog_height = 420
+        x = (dialog.winfo_screenwidth() - dialog_width) // 2
+        y = (dialog.winfo_screenheight() - dialog_height) // 2
+        dialog.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
+        dialog.resizable(False, False)
+        
+        result = {'key': None}
+        
+        # Content
+        content = tk.Frame(dialog, bg=colors['bg_main'], padx=25, pady=20)
+        content.pack(fill=tk.BOTH, expand=True)
+        
+        # Icon and title
+        header = tk.Frame(content, bg=colors['bg_main'])
+        header.pack(fill=tk.X, pady=(0, 15))
+        
+        icon = tk.Label(
+            header,
+            text="🔑",
+            bg=colors['bg_main'],
+            font=('Segoe UI', 28)
+        )
+        icon.pack(side=tk.LEFT, padx=(0, 15))
+        
+        title_frame = tk.Frame(header, bg=colors['bg_main'])
+        title_frame.pack(side=tk.LEFT, fill=tk.X)
+        
+        title = tk.Label(
+            title_frame,
+            text="API Key Required",
+            bg=colors['bg_main'],
+            fg=colors['accent_primary'],
+            font=('Segoe UI', 14, 'bold')
+        )
+        title.pack(anchor=tk.W)
+        
+        subtitle = tk.Label(
+            title_frame,
+            text="Connect to Regolith.rocks for mining data",
+            bg=colors['bg_main'],
+            fg=colors['text_muted'],
+            font=fonts['small']
+        )
+        subtitle.pack(anchor=tk.W)
+        
+        # Error message (if any)
+        if error_msg:
+            error_frame = tk.Frame(content, bg=colors['error'], padx=10, pady=8)
+            error_frame.pack(fill=tk.X, pady=(0, 10))
+            
+            error_label = tk.Label(
+                error_frame,
+                text=f"⚠ {error_msg}",
+                bg=colors['error'],
+                fg='#ffffff',
+                font=fonts['body']
+            )
+            error_label.pack(anchor=tk.W)
+        
+        # Instructions
+        instructions = tk.Label(
+            content,
+            text="Enter your Regolith.rocks API key below.\nYou can get your key from your profile settings.",
+            bg=colors['bg_main'],
+            fg=colors['text_secondary'],
+            font=fonts['body'],
+            justify=tk.LEFT
+        )
+        instructions.pack(anchor=tk.W, pady=(0, 10))
+        
+        # API Key entry
+        key_frame = tk.Frame(content, bg=colors['border'])
+        key_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        key_inner = tk.Frame(key_frame, bg=colors['bg_dark'], padx=2, pady=2)
+        key_inner.pack(fill=tk.X, padx=1, pady=1)
+        
+        key_var = tk.StringVar(value=current_key)
+        key_entry = tk.Entry(
+            key_inner,
+            textvariable=key_var,
+            bg=colors['bg_dark'],
+            fg=colors['text_primary'],
+            font=fonts['mono'],
+            relief='flat',
+            insertbackground=colors['accent_primary'],
+            show='•'
+        )
+        key_entry.pack(fill=tk.X, padx=8, pady=8)
+        key_entry.focus_set()
+        
+        # Show/hide toggle
+        show_var = tk.BooleanVar(value=False)
+        
+        def toggle_show():
+            key_entry.configure(show='' if show_var.get() else '•')
+        
+        show_check = tk.Checkbutton(
+            content,
+            text="Show key",
+            variable=show_var,
+            bg=colors['bg_main'],
+            fg=colors['text_muted'],
+            font=fonts['small'],
+            selectcolor=colors['bg_dark'],
+            activebackground=colors['bg_main'],
+            activeforeground=colors['text_muted'],
+            command=toggle_show
+        )
+        show_check.pack(anchor=tk.W, pady=(0, 10))
+        
+        # Get API key link
+        def open_api_page():
+            import webbrowser
+            webbrowser.open("https://regolith.rocks/profile/api")
+        
+        link = tk.Label(
+            content,
+            text="→ Get your API key at regolith.rocks/profile/api",
+            bg=colors['bg_main'],
+            fg=colors['cyan'],
+            font=fonts['body'],
+            cursor='hand2'
+        )
+        link.pack(anchor=tk.W, pady=(0, 15))
+        link.bind('<Button-1>', lambda e: open_api_page())
+        
+        # Buttons
+        btn_frame = tk.Frame(content, bg=colors['bg_main'])
+        btn_frame.pack(fill=tk.X)
+        
+        def on_submit():
+            key = key_var.get().strip()
+            if key:
+                result['key'] = key
+                dialog.destroy()
+            else:
+                messagebox.showwarning("No Key", "Please enter an API key.", parent=dialog)
+        
+        def on_cancel():
+            result['key'] = None
+            dialog.destroy()
+        
+        submit_btn = tk.Button(
+            btn_frame,
+            text="✓  Validate & Continue",
+            bg=colors['accent_primary'],
+            fg=colors['bg_dark'],
+            font=('Segoe UI', 10, 'bold'),
+            relief='flat',
+            padx=20,
+            pady=8,
+            cursor='hand2',
+            command=on_submit
+        )
+        submit_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        cancel_btn = tk.Button(
+            btn_frame,
+            text="Exit",
+            bg=colors['bg_light'],
+            fg=colors['text_primary'],
+            font=fonts['body'],
+            relief='flat',
+            padx=20,
+            pady=8,
+            cursor='hand2',
+            command=on_cancel
+        )
+        cancel_btn.pack(side=tk.LEFT)
+        
+        # Bind Enter key
+        dialog.bind('<Return>', lambda e: on_submit())
+        dialog.bind('<Escape>', lambda e: on_cancel())
+        
+        # Wait for dialog
+        dialog.wait_window()
+        
+        return result['key']
     
     def _on_close(self):
         """Handle window close."""

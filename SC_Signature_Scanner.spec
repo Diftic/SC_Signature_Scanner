@@ -16,13 +16,10 @@ PROJECT_ROOT = Path(SPECPATH)
 datas = [
     # Database file
     (str(PROJECT_ROOT / 'data' / 'combat_analyst_db.json'), 'data'),
-    # Include any cached pricing data if it exists
 ]
 
-# Add scan_region.json if it exists (user config)
-scan_region = PROJECT_ROOT / 'scan_region.json'
-if scan_region.exists():
-    datas.append((str(scan_region), '.'))
+# Note: scan_region.json and config.json are user config files
+# created at runtime - do NOT bundle them
 
 # Hidden imports that PyInstaller might miss
 hiddenimports = [
@@ -32,6 +29,7 @@ hiddenimports = [
     'numpy',
     'watchdog.observers',
     'watchdog.events',
+    'requests',
 ]
 
 a = Analysis(

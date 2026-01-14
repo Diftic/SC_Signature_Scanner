@@ -48,5 +48,8 @@ def get_asset_path(asset_name: str) -> Path:
 
 
 def get_debug_path() -> Path:
-    """Get the path for debug output."""
-    return get_user_data_path() / "debug_output"
+    """Get the path for debug output.
+    
+    Returns a folder next to the executable (or script) for bug reports.
+    """
+    return get_user_data_path() / "SignatureScannerBugreport"
