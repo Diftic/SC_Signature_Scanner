@@ -73,19 +73,10 @@ class SCSignatureScannerApp:
         self.screenshot_count = 0
         self.regolith_user: Optional[str] = None
         
-        # Build UI
+        # Build UI (must be first - needed for dialogs)
         self._create_ui()
         
-        # Initialize scanner with signature database
-        self._init_scanner()
-        
-        # Load config (after scanner exists so debug mode can be applied)
-        self._load_config()
-        
-        # Initialize pricing system
-        self._init_pricing()
-        
-        # Check for updates (background)
+        # Check for updates (background, non-blocking)
         self._check_for_updates()
     
     def _create_ui(self):
@@ -1014,6 +1005,32 @@ class SCSignatureScannerApp:
             )
             text_label.pack(side=tk.LEFT, fill=tk.X)
         
+        # Thanks to section
+        thanks_label = tk.Label(
+            left_col,
+            text="THANKS TO",
+            bg=colors['bg_main'],
+            fg=colors['accent_primary'],
+            font=fonts['subheading']
+        )
+        thanks_label.pack(anchor=tk.W, pady=(15, 5))
+        
+        thanks_border = tk.Frame(left_col, bg=colors['border'])
+        thanks_border.pack(fill=tk.X)
+        
+        thanks_inner = tk.Frame(thanks_border, bg=colors['bg_light'], padx=12, pady=10)
+        thanks_inner.pack(fill=tk.X, padx=1, pady=1)
+        
+        thanks_text = tk.Label(
+            thanks_inner,
+            text="Thank you to those whom participated\n in the building and testing process\n  * Raychaser - Regolith.Rocks\n  * iambass - Testing crew",
+            bg=colors['bg_light'],
+            fg=colors['text_secondary'],
+            font=fonts['small'],
+            justify=tk.LEFT
+        )
+        thanks_text.pack(anchor=tk.W)
+        
         # Right column: Signature types
         right_col = tk.Frame(about_cols, bg=colors['bg_main'])
         right_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 0))
@@ -1677,18 +1694,26 @@ class SCSignatureScannerApp:
     
     def _save_config(self, show_message: bool = True):
         """Save current configuration."""
-        cfg = {
+        # Load existing config to preserve API key and other settings
+        cfg = self.config.load() or {}
+        
+        # Update with current UI values
+        cfg.update({
             'screenshot_folder': self.folder_var.get(),
             'popup_duration': self.duration_var.get(),
             'popup_scale': self.scale_var.get(),
             'refinery_method': self.method_var.get(),
             'debug_mode': self.debug_var.get(),
             'debug_folder': self.debug_folder_var.get(),
-        }
+        })
         
         if self.overlay_position:
             cfg['popup_position_x'] = self.overlay_position[0]
             cfg['popup_position_y'] = self.overlay_position[1]
+        else:
+            # Clear position if reset
+            cfg.pop('popup_position_x', None)
+            cfg.pop('popup_position_y', None)
         
         # Update pricing yield from current method
         pricing.set_refinery_yield(self._get_current_yield())
@@ -1702,10 +1727,19 @@ class SCSignatureScannerApp:
         """Run the application."""
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         
-        # Validate API key before showing main window
+        # Step 1: Validate API key first (required for Regolith data)
         if not self._validate_api_key_startup():
             self.root.destroy()
             return
+        
+        # Step 2: Initialize scanner with signature database
+        self._init_scanner()
+        
+        # Step 3: Load user config (after scanner exists so debug mode can be applied)
+        self._load_config()
+        
+        # Step 4: Initialize pricing system (UEX)
+        self._init_pricing()
         
         self.root.mainloop()
     
