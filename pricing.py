@@ -10,6 +10,8 @@ import urllib.error
 from typing import Dict, Optional, Tuple, List
 from pathlib import Path
 
+import regolith_api
+
 
 # Constants
 UEX_API_BASE = "https://api.uexcorp.uk/2.0"
@@ -53,11 +55,10 @@ class PricingManager:
     def __init__(self, data_dir: str = "data"):
         self.data_dir = Path(data_dir)
         self.cache_file = self.data_dir / "uex_prices.json"
-        self.rock_types_file = self.data_dir / "rock_types.json"
         
         # Data stores
         self.ore_prices: Dict[str, float] = {}  # ORE_NAME -> price per SCU
-        self.rock_types: Dict = {}  # System -> RockType -> data
+        self.rock_types: Dict = {}  # System -> RockType -> data (from Regolith cache)
         self.commodities: Dict[int, dict] = {}  # id -> commodity data
         
         # Status
@@ -81,19 +82,29 @@ class PricingManager:
         return self.prices_loaded
         
     def _load_rock_types(self) -> bool:
-        """Load rock types from Regolith JSON."""
+        """Load rock types from Regolith API cache."""
         try:
-            with open(self.rock_types_file, 'r', encoding='utf-8') as f:
-                self.rock_types = json.load(f)
+            api = regolith_api.get_api()
+            cache = api.get_cached_data()
+            
+            if not cache:
+                self.fetch_error = "Regolith cache not available - API validation required"
+                self.rock_types_loaded = False
+                return False
+            
+            rock_compositions = cache.get('rock_compositions', {})
+            if not rock_compositions:
+                self.fetch_error = "Regolith cache contains no rock composition data"
+                self.rock_types_loaded = False
+                return False
+            
+            self.rock_types = rock_compositions
             self.rock_types_loaded = True
             self.fetch_error = None
             return True
-        except FileNotFoundError:
-            self.fetch_error = f"Rock types file not found: {self.rock_types_file}"
-            self.rock_types_loaded = False
-            return False
-        except json.JSONDecodeError as e:
-            self.fetch_error = f"Invalid rock types JSON: {e}"
+            
+        except Exception as e:
+            self.fetch_error = f"Failed to load rock types from Regolith cache: {e}"
             self.rock_types_loaded = False
             return False
             

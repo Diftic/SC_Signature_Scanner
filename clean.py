@@ -8,10 +8,11 @@ Author: Mallachi
 
 import json
 import shutil
+import sys
 from pathlib import Path
 
 
-def clean():
+def clean(include_ocr_models: bool = False):
     """Remove cache files, debug output, user config, API credentials, and deprecated files.
     
     Cleans:
@@ -20,8 +21,13 @@ def clean():
     - scan_region.json (user-defined scan region)
     - config.json (settings + Regolith API key)
     - regolith_cache.json (cached Regolith.rocks data)
+    - Data cache files (rock_types.json, uex_prices.json)
     - Deprecated config files (hud_config.json, identifier_config.json)
-    - Deprecated source files (hud_calibration.py, identifier_window.py, jxr_converter.py)
+    - Deprecated source files (hud_calibration.py, identifier_window.py, etc.)
+    - EasyOCR model cache (optional, ~115MB)
+    
+    Args:
+        include_ocr_models: If True, also remove EasyOCR model cache (~115MB)
     """
     root = Path(__file__).parent
     removed = 0
@@ -106,6 +112,22 @@ def clean():
             print(f"  Removed: {filename} ({description})")
             removed += 1
     
+    # ===== Data Cache Files =====
+    print("\n[Data Cache]")
+    
+    data_dir = root / "data"
+    cache_files = [
+        ("rock_types.json", "Regolith rock composition cache"),
+        ("uex_prices.json", "UEX pricing cache"),
+    ]
+    
+    for filename, description in cache_files:
+        filepath = data_dir / filename
+        if filepath.exists():
+            filepath.unlink()
+            print(f"  Removed: data/{filename} ({description})")
+            removed += 1
+    
     # ===== Deprecated Config Files =====
     print("\n[Deprecated Config]")
     
@@ -114,12 +136,17 @@ def clean():
         ("identifier_config.json", "Old identifier window config"),
     ]
     
+    found_deprecated_config = False
     for filename, description in deprecated_configs:
         filepath = root / filename
         if filepath.exists():
             filepath.unlink()
             print(f"  Removed: {filename} ({description})")
             removed += 1
+            found_deprecated_config = True
+    
+    if not found_deprecated_config:
+        print("  (none found)")
     
     # ===== Deprecated Source Files =====
     print("\n[Deprecated Source Files]")
@@ -131,12 +158,36 @@ def clean():
         ("tobii_tracker.py", "Tobii integration (deferred)"),
     ]
     
+    found_deprecated = False
     for filename, description in deprecated_files:
         filepath = root / filename
         if filepath.exists():
             filepath.unlink()
             print(f"  Removed: {filename} ({description})")
             removed += 1
+            found_deprecated = True
+    
+    if not found_deprecated:
+        print("  (none found)")
+    
+    # ===== EasyOCR Model Cache =====
+    print("\n[OCR Model Cache]")
+    
+    easyocr_dir = Path.home() / ".EasyOCR"
+    if easyocr_dir.exists():
+        # Calculate size
+        total_size = sum(f.stat().st_size for f in easyocr_dir.rglob("*") if f.is_file())
+        size_mb = total_size / (1024 * 1024)
+        
+        if include_ocr_models:
+            shutil.rmtree(easyocr_dir)
+            print(f"  Removed: ~/.EasyOCR/ ({size_mb:.1f} MB)")
+            removed += 1
+        else:
+            print(f"  Skipped: ~/.EasyOCR/ ({size_mb:.1f} MB)")
+            print("           Use --ocr flag to remove OCR models")
+    else:
+        print("  (not installed)")
     
     # ===== Summary =====
     print()
@@ -146,5 +197,30 @@ def clean():
     print("Note: Run this before building for distribution.")
 
 
+def main():
+    """Entry point with argument parsing."""
+    include_ocr = "--ocr" in sys.argv or "-o" in sys.argv
+    
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print("SC Signature Scanner - Cleanup Utility")
+        print()
+        print("Usage: python clean.py [options]")
+        print()
+        print("Options:")
+        print("  --ocr, -o    Also remove EasyOCR model cache (~115MB)")
+        print("  --help, -h   Show this help message")
+        print()
+        print("Removes:")
+        print("  - __pycache__ directories and .pyc/.pyo files")
+        print("  - Debug output folders")
+        print("  - User config files (scan_region.json, config.json)")
+        print("  - Data cache files (rock_types.json, uex_prices.json)")
+        print("  - Deprecated source and config files")
+        print("  - EasyOCR models (optional, with --ocr flag)")
+        return
+    
+    clean(include_ocr_models=include_ocr)
+
+
 if __name__ == "__main__":
-    clean()
+    main()

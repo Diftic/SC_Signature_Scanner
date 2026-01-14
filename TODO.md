@@ -1,6 +1,8 @@
 # SC Signature Scanner - Status
 
+## Application Version: 3.0.0
 ## Database Version: 4.5 (for Star Citizen 4.5)
+## OCR Engine: EasyOCR (deep learning)
 
 ## Mining Categories
 
@@ -62,6 +64,21 @@ ROC or FPS mining. 100% single mineral per cluster.
 - [x] PyInstaller build system configured
 - [x] Path utilities for frozen exe
 - [x] Test code removed
+- [x] EasyOCR migration (replaced Tesseract)
+- [x] Pillow 10.0.0+ compatibility (ANTIALIAS shim)
+- [x] Overlay category matching fixed
+- [x] Display names for asteroid types (C → "C-type Asteroid")
+- [x] Regolith API integration (rock compositions from cache)
+- [x] Pricing integration reads from Regolith cache (single source of truth)
+- [x] Build script updated for PyInstaller _internal/ directory structure
+
+## In Progress
+- [ ] Testing on fresh install
+- [ ] Version control setup (GitHub)
+
+## Known Issues
+- None currently identified
 
 ## Future Work
 - [ ] Full signature review after next major mining patch
+- [ ] GPU acceleration option for OCR (currently CPU-only)

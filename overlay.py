@@ -154,21 +154,30 @@ class OverlayPopup:
         match_type = match.get('type', 'unknown')
         category = match.get('category', '')
         
-        if category == 'asteroid' or 'Asteroid' in match.get('name', ''):
+        # Match categories from scanner.py
+        if category == 'space_deposit' or match_type == 'space_deposits':
             color = self.MINING_COLOR
-            icon = "🪨"
-        elif category == 'deposit' or 'Deposit' in match.get('name', ''):
+            icon = "🪨"  # Asteroid
+        elif category == 'surface_deposit' or match_type == 'surface_deposits':
             color = self.MINING_COLOR
-            icon = "⛏️"
-        elif match_type == 'fps_mining' or category == 'fps_mining':
-            color = "#a371f7"  # Purple for hand mining
-            icon = "💎"
-        elif match_type == 'ground_vehicle' or category == 'ground_vehicle':
-            color = "#a371f7"  # Purple for vehicle mining
-            icon = "💎"
+            icon = "⛏️"  # Surface deposit
+        elif match_type == 'ground_deposit' or category == 'ground_deposits':
+            variant = match.get('variant', '')
+            if variant == 'small':
+                color = "#a371f7"  # Purple for hand mining
+                icon = "💎"
+            else:
+                color = "#a371f7"  # Purple for vehicle mining  
+                icon = "🚗"
+        elif match_type == 'salvage':
+            color = self.SALVAGE_COLOR
+            icon = "🔧"
+        elif match_type == 'known':
+            color = self.MINING_COLOR
+            icon = "📡"
         else:
             color = self.FG_COLOR
-            icon = "📡"
+            icon = "❓"
         
         # Header row: Icon + Name + Value
         header_row = tk.Frame(container, bg=self.BG_COLOR)
@@ -198,18 +207,26 @@ class OverlayPopup:
             value_label.pack(side=tk.RIGHT)
         
         # Mining method indicator
-        if category == 'asteroid':
+        if category == 'space_deposit' or match_type == 'space_deposits':
             mining_method = "🚀 Ship Mining (mixed composition)"
             method_color = self.SHIP_COLOR
-        elif category == 'deposit':
+        elif category == 'surface_deposit' or match_type == 'surface_deposits':
             mining_method = "🚀 Ship Mining (mixed composition)"
             method_color = self.SHIP_COLOR
-        elif match_type == 'fps_mining' or category == 'fps_mining':
-            mining_method = "💎 Hand Mining (100% single mineral)"
-            method_color = "#a371f7"  # Purple
-        elif match_type == 'ground_vehicle' or category == 'ground_vehicle':
-            mining_method = "🚗 ROC Mining (100% single mineral)"
-            method_color = "#a371f7"  # Purple
+        elif match_type == 'ground_deposit' or category == 'ground_deposits':
+            variant = match.get('variant', '')
+            if variant == 'small':
+                mining_method = "💎 Hand Mining (100% single mineral)"
+                method_color = "#a371f7"  # Purple
+            else:
+                mining_method = "🚗 ROC Mining (100% single mineral)"
+                method_color = "#a371f7"  # Purple
+        elif match_type == 'salvage':
+            mining_method = "🔧 Hull Scraping"
+            method_color = self.SALVAGE_COLOR
+        elif match_type == 'known':
+            mining_method = None
+            method_color = self.MUTED_COLOR
         else:
             mining_method = None
             method_color = self.MUTED_COLOR
@@ -233,20 +250,43 @@ class OverlayPopup:
         single_mineral = match.get('single_mineral', False)
         
         if single_mineral:
-            # Single mineral deposit - show simple info
-            mineral_name = match.get('mineral_name', 'Unknown')
+            # Single mineral deposit - show possible minerals
+            possible_minerals = match.get('possible_minerals', [])
             info_row = tk.Frame(container, bg=self.BG_LIGHT)
             info_row.pack(fill=tk.X, pady=(int(5 * self.scale), 0))
             
-            tk.Label(
-                info_row,
-                text=f"Contains 100% {mineral_name}",
-                font=self._scaled_font("Consolas", 10),
-                fg="#3fb950",
-                bg=self.BG_LIGHT,
-                padx=10,
-                pady=5
-            ).pack(anchor=tk.W)
+            if possible_minerals:
+                minerals_text = ", ".join(possible_minerals[:5])  # Show first 5
+                if len(possible_minerals) > 5:
+                    minerals_text += f" (+{len(possible_minerals) - 5} more)"
+                tk.Label(
+                    info_row,
+                    text=f"100% purity - one of:",
+                    font=self._scaled_font("Consolas", 9),
+                    fg=self.MUTED_COLOR,
+                    bg=self.BG_LIGHT,
+                    padx=10,
+                    pady=(5, 0)
+                ).pack(anchor=tk.W)
+                tk.Label(
+                    info_row,
+                    text=minerals_text,
+                    font=self._scaled_font("Consolas", 10),
+                    fg="#3fb950",
+                    bg=self.BG_LIGHT,
+                    padx=10,
+                    pady=(0, 5)
+                ).pack(anchor=tk.W)
+            else:
+                tk.Label(
+                    info_row,
+                    text="100% single mineral purity",
+                    font=self._scaled_font("Consolas", 10),
+                    fg="#3fb950",
+                    bg=self.BG_LIGHT,
+                    padx=10,
+                    pady=5
+                ).pack(anchor=tk.W)
             
         elif composition:
             # Table header
@@ -393,12 +433,17 @@ class OverlayPopup:
         
         # Determine color based on type
         match_type = match.get('type', 'unknown')
+        category = match.get('category', '')
+        
         if match_type == 'ship':
             color = self.SHIP_COLOR
             icon = "🚀"
-        elif match_type in ('asteroid', 'deposit', 'fps_mining', 'ground_vehicle'):
+        elif match_type in ('space_deposits', 'surface_deposits', 'known') or category in ('space_deposit', 'surface_deposit'):
             color = self.MINING_COLOR
             icon = "⛏️"
+        elif match_type == 'ground_deposit' or category == 'ground_deposits':
+            color = "#a371f7"
+            icon = "💎"
         elif match_type == 'salvage':
             color = self.SALVAGE_COLOR
             icon = "🔧"
@@ -436,9 +481,9 @@ class OverlayPopup:
         name_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
         # Detail column (count/confidence)
-        if match_type in ('asteroid', 'deposit', 'fps_mining', 'ground_vehicle'):
+        if match_type in ('space_deposits', 'surface_deposits', 'ground_deposit', 'known') or category in ('space_deposit', 'surface_deposit', 'ground_deposits'):
             count = match.get('count', 1)
-            detail = f"×{count}"
+            detail = f"×{count}" if count > 1 else ""
         elif match_type == 'salvage':
             panels = match.get('panels', 1)
             detail = f"{panels} panels"

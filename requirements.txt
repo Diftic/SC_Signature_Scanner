@@ -1,12 +1,30 @@
 # SC Signature Scanner
 # Star Citizen signature detection and identification tool
+# Author: Mallachi
 
-pytesseract>=0.3.10
+# ===== OCR Engine =====
+# EasyOCR - Deep learning based OCR
+# First run downloads ~115MB of model files to ~/.EasyOCR/model/
+easyocr>=1.7.0
+
+# PyTorch - Required by EasyOCR (CPU version)
+# Note: On Windows, torch must be installed before easyocr
+# Install with: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+torch>=2.0.0
+torchvision>=0.15.0
+
+# ===== Image Processing =====
 Pillow>=10.0.0
-watchdog>=3.0.0
-pystray>=0.19.0
-keyboard>=0.13.5
 numpy>=1.24.0
-requests>=2.31.0
-websockets>=12.0
 opencv-python>=4.8.0
+
+# ===== File Monitoring =====
+watchdog>=3.0.0
+
+# ===== Networking =====
+requests>=2.31.0
+
+# ===== Optional (for future features) =====
+# websockets>=12.0  # For Tobii integration (deferred)
+# pystray>=0.19.0   # For system tray (deferred)
+# keyboard>=0.13.5  # For hotkeys (deferred)
