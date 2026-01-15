@@ -265,18 +265,16 @@ class OverlayPopup:
                     font=self._scaled_font("Consolas", 9),
                     fg=self.MUTED_COLOR,
                     bg=self.BG_LIGHT,
-                    padx=10,
-                    pady=(5, 0)
-                ).pack(anchor=tk.W)
+                    padx=10
+                ).pack(anchor=tk.W, pady=(5, 0))
                 tk.Label(
                     info_row,
                     text=minerals_text,
                     font=self._scaled_font("Consolas", 10),
                     fg="#3fb950",
                     bg=self.BG_LIGHT,
-                    padx=10,
-                    pady=(0, 5)
-                ).pack(anchor=tk.W)
+                    padx=10
+                ).pack(anchor=tk.W, pady=(0, 5))
             else:
                 tk.Label(
                     info_row,

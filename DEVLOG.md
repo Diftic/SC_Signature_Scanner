@@ -3,7 +3,7 @@
 **Project:** SC Signature Scanner  
 **Location:** `C:\Users\larse\PycharmProjects\AREA52\SC_Signature_Scanner\`  
 **Developer:** Mallachi  
-**Current Version:** v3.0.0  
+**Current Version:** v3.1.1  
 **Development Period:** January 8-14, 2026
 
 ---
@@ -438,6 +438,12 @@ First OCR use:
 | Local database over API-only | Offline capability, faster lookups |
 | Lazy OCR init over eager | Faster startup, download only when needed |
 | CPU-only OCR default | Universal compatibility, avoids CUDA complexity |
+| Comma removed from OCR allowlist | Was causing misreads like "7,480" → "7,4480"; plain digit parsing is more reliable |
+| Layer 3 signature validation | OCR reads commas/periods as digits; validation + correction against known bases fixes this |
+| Morphological punctuation filtering | Commas/periods are ~5-20px vs digits 100+px; remove small connected components before OCR |
+| Prefer lowest count in correction | 7400 = 4× M-type is more realistic than 7440 = 62× small ground deposit |
+| Startup splash screen | Torch/EasyOCR takes 15-20s to load; users need visual feedback that app is working |
+| Use `Any` for easyocr type hints | Type hints evaluate at class definition; if import fails, `easyocr.Reader` crashes |
 
 ---
 
@@ -476,7 +482,7 @@ First OCR use:
 
 ## Current Status / Next Steps
 
-**Status:** v3.0.0 - Feature complete, ready for testing
+**Status:** v3.1.1 - Tester bug fix
 
 **Immediate priorities:**
 1. ~~Fix About tab background color issue~~ ✓ (completed Jan 14)
@@ -489,13 +495,64 @@ First OCR use:
 8. ~~Fix asteroid display names~~ ✓ (completed Jan 14)
 9. ~~Connect pricing.py to Regolith cache~~ ✓ (completed Jan 14)
 10. ~~Fix build script for PyInstaller _internal/ structure~~ ✓ (completed Jan 14)
-11. Testing on fresh install
-12. Version control setup (GitHub)
+11. ~~Version control setup (GitHub)~~ ✓ (completed Jan 14)
+12. ~~Fix OCR comma/period misreading~~ ✓ (completed Jan 15)
+13. ~~Add startup splash screen~~ ✓ (completed Jan 15)
+14. ~~Fix easyocr import NameError crash~~ ✓ (completed Jan 16)
+15. Testing on fresh install
 
 **Blocking issues:** 
 - None
 
-**Ready for:** Testing and version control
+**Ready for:** Fresh install testing, distribution to testers
+
+**Session Log - January 16, 2026 (Session 8):**
+- **BUG REPORT:** Tester crash on startup: `NameError: name 'easyocr' is not defined`
+- **ROOT CAUSE:** Type hints `Optional[easyocr.Reader]` evaluated at class definition time
+- When `import easyocr` fails, the name `easyocr` doesn't exist, so the type hint crashes
+- **FIX:** Changed type hints from `easyocr.Reader` to `Any` in scanner.py
+- Affected: `self._ocr_reader` attribute and `_get_ocr_reader()` return type
+- Now app loads even if easyocr import fails (shows proper error instead of crash)
+- Bumped version to v3.1.1
+
+**Session Log - January 15, 2026 (Session 7):**
+- **BUG:** Overlay crash `TclError: bad screen distance "5 0"` when showing ground deposit popup
+- **ROOT CAUSE:** Tkinter Label constructor doesn't accept tuple `pady=(5, 0)` — only `.pack()` does
+- **FIX:** Moved tuple pady from Label constructor to `.pack(pady=(5, 0))` in overlay.py
+- **BUG:** Signature correction picked wrong value: `74400` → `7440` instead of `7400`
+- **ROOT CAUSE:** `max(candidates)` picked larger value; 7440 = 62× small ground (120) vs 7400 = 4× M-type (1850)
+- **FIX:** Changed `_try_correct_signature()` to prefer lowest count: `min(candidates, key=min_count)`
+- **IMPROVEMENT:** Implemented morphological filtering to remove commas/periods BEFORE OCR
+- **RATIONALE:** Commas are ~5-20 pixels, digits are 100+ pixels — size-based filtering is reliable
+- **NEW:** Added `_remove_small_components()` method using OpenCV connected components
+- Removes components < 50 pixels, fills with background color
+- Debug mode saves `04a_removed_components.png` showing removed pixels in red
+- **BUG:** 20-second startup with no feedback — users think app is frozen
+- **FIX:** Added splash.py with animated loading screen shown immediately
+- Status messages: "Loading core modules...", "Loading OCR engine...", "Loading UI components...", "Loading pricing data..."
+- Splash closes before main window appears (only one Tk root allowed)
+- **TESTED:** Comma filtering works — `7,400` now correctly read as `7400`
+- Bumped version to v3.1.0
+
+**Session Log - January 14, 2026 (Session 6):**
+- Investigated OCR failure: `7,480` misread as `7,4480` → parsed as `[7448, 4480]` → no match
+- Root cause: Comma in allowlist causing EasyOCR to interpolate extra digits around comma position
+- **FIX:** Removed comma from OCR allowlist (`'0123456789,.'` → `'0123456789.'`)
+- Pattern 2 in `_extract_signatures` handles plain digit sequences, so comma removal is safe
+- Tested with tighter scan region: OCR read `1850` with 0.89 confidence ✓
+- **BUG:** Threading crash when showing overlay - watchdog callback runs in background thread, Tkinter requires main thread
+- **FIX:** Changed `overlay.show()` to use `root.after(0, lambda: self._show_overlay(...))` for thread-safe GUI update
+- Added `_show_overlay()` helper method to main.py
+- **BUG:** `6.000` parsed but returned empty (period pattern worked, but value not matched)
+- **FIX:** Added Pattern 2 for period-separated numbers (`\d{1,3}\.\d{3}`)
+- **BUG:** `7,400` read as `74400` (comma read as digit `4` when not in allowlist)
+- **ROOT CAUSE:** Both comma and period can be read as digits by OCR - no allowlist config solves this
+- **FIX:** Implemented Layer 3 signature validation:
+  - Added `KNOWN_BASE_SIGNATURES` constant with all valid base values
+  - Added `_is_exact_multiple()` to check if value divides cleanly by any known base
+  - Added `_try_correct_signature()` to fix phantom digit insertion
+  - Updated `_extract_signatures()` to validate and auto-correct signatures
+- Example: `74400` → not valid → try removing digits → `7400` ÷ 1850 = 4 ✓ → corrected to 7400
 
 **Session Log - January 14, 2026 (Session 5):**
 - Identified disconnect: regolith_api.py saves to regolith_cache.json, pricing.py was loading from data/rock_types.json
@@ -505,6 +562,10 @@ First OCR use:
 - Bumped version to v3.0.0
 - Build successful, ready for testing
 - Tested EasyOCR on full scan results panel (standalone test) - works but accuracy limited by image quality; signature scanner's focused region approach is better suited
+- **GIT:** Pushed to GitHub - encountered 100MB file limit on dist zip (221MB)
+- **FIX:** Rewrote git history to remove large files from commits (`git filter-branch`)
+- **FIX:** Updated .gitignore to exclude build/, dist/, *.zip
+- Successfully pushed v3.0.0 to GitHub
 
 **Session Log - January 14, 2026 (Session 4):**
 - Added ROCK_DISPLAY_NAMES mapping for short asteroid codes
@@ -557,12 +618,13 @@ First OCR use:
 
 ## Current File Reference
 
-*Updated: January 14, 2026*
+*Updated: January 15, 2026*
 
 ```
 SC_Signature_Scanner/
 ├── main.py              # Main application, tkinter UI, startup flow
-├── scanner.py           # EasyOCR engine, signature matching
+├── splash.py            # Startup splash screen with loading status
+├── scanner.py           # EasyOCR engine, signature matching, component filtering
 ├── overlay.py           # Results popup display, position adjuster
 ├── monitor.py           # Screenshot folder watcher (watchdog)
 ├── config.py            # Configuration persistence (JSON)
@@ -598,4 +660,4 @@ SC_Signature_Scanner/
 ---
 
 *Document generated: January 12, 2026*  
-*Last updated: January 14, 2026 - v3.0.0 Regolith integration complete*
+*Last updated: January 16, 2026 - v3.1.1 easyocr type hint fix*

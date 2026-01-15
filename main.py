@@ -11,6 +11,15 @@ Features:
 - Overlay popup with match results
 """
 
+import sys
+
+# Show splash screen immediately (before heavy imports)
+# splash.py only uses tkinter - no heavy dependencies
+from splash import show_splash
+_splash = show_splash()
+
+# Now do the heavy imports with status updates
+_splash.set_status("Loading core modules...")
 import json
 import threading
 import time
@@ -19,17 +28,20 @@ from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Any, Tuple
-import sys
 
 # Path utilities (must be first for frozen exe support)
 import paths
 
-# Local imports
+_splash.set_status("Loading OCR engine...")
 from scanner import SignatureScanner
+
+_splash.set_status("Loading UI components...")
 from overlay import OverlayPopup, PositionAdjuster
 from monitor import ScreenshotMonitor
 from config import Config
 from theme import RegolithTheme, WarningBanner, StatusIndicator
+
+_splash.set_status("Loading pricing data...")
 import pricing
 import version_checker
 import region_selector
@@ -1226,15 +1238,9 @@ class SCSignatureScannerApp:
                         text_preview = ocr['text'][:50] + '...' if len(ocr['text']) > 50 else ocr['text']
                         self._log(f"   [DEBUG] OCR ({ocr['region']}): {text_preview}")
                 
-                # Show overlay
+                # Show overlay (must schedule on main thread - watchdog runs in background thread)
                 if matches:
-                    if not self.overlay:
-                        self.overlay = OverlayPopup(
-                            position=self.overlay_position,
-                            duration=self.duration_var.get(),
-                            scale=self.scale_var.get()
-                        )
-                    self.overlay.show(sig, matches)
+                    self.root.after(0, lambda s=sig, m=matches: self._show_overlay(s, m))
             else:
                 self._log("   No signature detected")
                 
@@ -1247,6 +1253,16 @@ class SCSignatureScannerApp:
         # Update stats
         self.screenshot_count += 1
         self.stats_label.configure(text=f"{self.screenshot_count} screenshots processed")
+    
+    def _show_overlay(self, sig: int, matches: list):
+        """Show the overlay popup (must be called from main thread)."""
+        if not self.overlay:
+            self.overlay = OverlayPopup(
+                position=self.overlay_position,
+                duration=self.duration_var.get(),
+                scale=self.scale_var.get()
+            )
+        self.overlay.show(sig, matches)
     
     def _test_screenshot(self):
         """Test with a manually selected screenshot."""
@@ -2033,6 +2049,8 @@ class SCSignatureScannerApp:
 
 
 def main():
+    _splash.set_status("Starting application...")
+    _splash.close()  # Close splash before creating app (only one Tk root allowed)
     app = SCSignatureScannerApp()
     app.run()
 

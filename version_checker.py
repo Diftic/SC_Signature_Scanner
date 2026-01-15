@@ -17,7 +17,7 @@ except ImportError:
 
 
 # Current version - update this with each release
-CURRENT_VERSION = "3.0.0"
+CURRENT_VERSION = "3.1.1"
 
 # GitHub repository info - UPDATE THESE when repo is created
 GITHUB_OWNER = "OWNER"  # TODO: Set your GitHub username

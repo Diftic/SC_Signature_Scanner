@@ -75,6 +75,7 @@ def main():
         "main.py",
         "scanner.py",
         "overlay.py",
+        "splash.py",
         "monitor.py",
         "config.py",
         "theme.py",

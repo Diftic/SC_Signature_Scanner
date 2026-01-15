@@ -52,6 +52,20 @@ except ImportError as e:
     print(f"Warning: EasyOCR not installed. OCR disabled. Error: {e}")
 
 
+# Known base signatures for validation
+# Used to detect and correct OCR errors (phantom digits from comma/period separators)
+KNOWN_BASE_SIGNATURES = {
+    # Ground deposits
+    120, 620,
+    # Space deposits (asteroids)
+    1660, 1700, 1720, 1750, 1850, 1870, 1900,
+    # Surface deposits
+    1730, 1770, 1790, 1800, 1820, 1840, 1920, 1950,
+    # Salvage
+    2000,
+}
+
+
 # Display name mapping for short rock type codes
 ROCK_DISPLAY_NAMES = {
     # Space deposits (asteroids)
@@ -104,7 +118,7 @@ class SignatureScanner:
         self._debug_prefix = ""  # Timestamp prefix for debug files
         
         # EasyOCR reader - lazily initialized on first use
-        self._ocr_reader: Optional[easyocr.Reader] = None
+        self._ocr_reader: Optional[Any] = None  # easyocr.Reader when available
         self._ocr_initialized = False
         self._ocr_init_error: Optional[str] = None
         
@@ -112,7 +126,7 @@ class SignatureScanner:
         self.on_model_download_start: Optional[callable] = None
         self.on_model_download_complete: Optional[callable] = None
     
-    def _get_ocr_reader(self) -> Optional[easyocr.Reader]:
+    def _get_ocr_reader(self) -> Optional[Any]:
         """Get or initialize the EasyOCR reader.
         
         Lazy initialization allows:
@@ -322,9 +336,12 @@ class SignatureScanner:
     def _enhance_for_ocr(self, img: Image.Image) -> np.ndarray:
         """Enhance image for OCR.
         
-        EasyOCR handles most preprocessing internally, but we still:
-        1. Convert to RGB numpy array (EasyOCR's expected input)
-        2. Optionally upscale for better small text detection
+        Processing steps:
+        1. Convert to RGB numpy array
+        2. Upscale small regions for better detection
+        3. Remove small connected components (commas, periods, noise)
+           - Commas/periods are ~5-20 pixels, digits are 100+ pixels
+           - This prevents OCR from misreading punctuation as digits
         
         Args:
             img: Cropped region containing signature
@@ -332,6 +349,8 @@ class SignatureScanner:
         Returns:
             Numpy array (RGB) ready for EasyOCR
         """
+        import cv2
+        
         # Ensure RGB
         if img.mode != 'RGB':
             img = img.convert('RGB')
@@ -346,7 +365,83 @@ class SignatureScanner:
                 Image.Resampling.LANCZOS
             )
         
-        return np.array(img)
+        img_array = np.array(img)
+        
+        # Remove small connected components (commas, periods, noise)
+        # This prevents OCR from misreading punctuation as digits
+        img_array = self._remove_small_components(img_array)
+        
+        return img_array
+    
+    def _remove_small_components(self, img_array: np.ndarray, min_area: int = 50) -> np.ndarray:
+        """Remove small connected components from image.
+        
+        Commas and periods are tiny (~5-20 pixels) compared to digits (100+ pixels).
+        By removing small components, we prevent OCR from misreading punctuation.
+        
+        Args:
+            img_array: RGB numpy array
+            min_area: Minimum component area to keep (pixels). Default 50.
+        
+        Returns:
+            Cleaned RGB numpy array with small components removed
+        """
+        import cv2
+        
+        # Convert to grayscale
+        gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+        
+        # Binary threshold - find dark elements (text) on light background
+        # Use adaptive threshold for varying backgrounds
+        # THRESH_BINARY_INV: dark pixels become white (foreground)
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        
+        # Find connected components
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary, connectivity=8)
+        
+        # Create mask of components to keep (large enough to be digits)
+        mask = np.zeros(binary.shape, dtype=np.uint8)
+        
+        removed_count = 0
+        kept_count = 0
+        
+        for i in range(1, num_labels):  # Skip background (label 0)
+            area = stats[i, cv2.CC_STAT_AREA]
+            if area >= min_area:
+                # Keep this component
+                mask[labels == i] = 255
+                kept_count += 1
+            else:
+                removed_count += 1
+        
+        if self.debug_mode:
+            print(f"[DEBUG] Component filter: kept {kept_count}, removed {removed_count} (min_area={min_area})")
+        
+        # Apply mask to original image
+        # Where mask is 0 (removed components), replace with background color
+        # Estimate background as median color of non-text pixels
+        bg_mask = binary == 0  # Original background pixels
+        if np.any(bg_mask):
+            bg_color = np.median(img_array[bg_mask], axis=0).astype(np.uint8)
+        else:
+            bg_color = np.array([128, 128, 128], dtype=np.uint8)  # Fallback gray
+        
+        # Create output image
+        result = img_array.copy()
+        
+        # Where we removed components (mask is 0 but binary had content), fill with background
+        removed_pixels = (binary == 255) & (mask == 0)
+        result[removed_pixels] = bg_color
+        
+        if self.debug_mode and removed_count > 0:
+            # Save debug image showing what was removed
+            debug_removed = img_array.copy()
+            debug_removed[removed_pixels] = [255, 0, 0]  # Red for removed pixels
+            debug_pil = Image.fromarray(debug_removed)
+            debug_pil.save(self._debug_path("04a_removed_components.png"))
+            self.last_debug_info['debug_files'].append(f"{self._debug_prefix}04a_removed_components.png")
+        
+        return result
     
     def _load_database(self, db_path: Path) -> Dict[str, Any]:
         """Load signature database."""
@@ -418,9 +513,11 @@ class SignatureScanner:
         
         try:
             # EasyOCR with digit allowlist for maximum accuracy
+            # Note: Comma removed from allowlist - was causing misreads like "7,480" -> "7,4480"
+            # Pattern 2 in _extract_signatures handles plain digit sequences
             results = reader.readtext(
                 img_array,
-                allowlist='0123456789,.',
+                allowlist='0123456789.',
                 paragraph=False,  # Don't merge into paragraphs
                 detail=1,  # Return bounding boxes + confidence
             )
@@ -459,25 +556,50 @@ class SignatureScanner:
         Returns:
             List of valid signature integers
         """
-        signatures = []
+        raw_values = []
         
         # Pattern 1: Numbers with comma separators (e.g., "1,850")
         for match in re.findall(r'(\d{1,3},\d{3})', text):
             try:
                 value = int(match.replace(',', ''))
-                if self._is_valid_signature(value):
-                    signatures.append(value)
+                if self._is_valid_signature(value) and value not in raw_values:
+                    raw_values.append(value)
             except ValueError:
                 pass
         
-        # Pattern 2: Plain numbers (e.g., "1850")
+        # Pattern 2: Numbers with period separators (e.g., "6.000" - European format or OCR misread)
+        for match in re.findall(r'(\d{1,3}\.\d{3})', text):
+            try:
+                value = int(match.replace('.', ''))
+                if self._is_valid_signature(value) and value not in raw_values:
+                    raw_values.append(value)
+            except ValueError:
+                pass
+        
+        # Pattern 3: Plain numbers (e.g., "1850" or "74400")
         for match in re.findall(r'(\d{3,6})', text):
             try:
                 value = int(match)
-                if self._is_valid_signature(value) and value not in signatures:
-                    signatures.append(value)
+                if self._is_valid_signature(value) and value not in raw_values:
+                    raw_values.append(value)
             except ValueError:
                 pass
+        
+        # Validate and correct signatures
+        signatures = []
+        for value in raw_values:
+            if self._is_exact_multiple(value):
+                # Valid as-is
+                signatures.append(value)
+            else:
+                # Try to correct (phantom digit from comma/period separator)
+                corrected = self._try_correct_signature(value)
+                if corrected and corrected not in signatures:
+                    if self.debug_mode:
+                        print(f"[DEBUG] Signature corrected: {value} -> {corrected}")
+                    signatures.append(corrected)
+                elif self.debug_mode:
+                    print(f"[DEBUG] Signature {value} invalid and uncorrectable")
         
         return signatures
     
@@ -492,6 +614,71 @@ class SignatureScanner:
         """
         # Valid range: 100 (small ground deposit) to 200,000 (large salvage/asteroid field)
         return 100 <= value <= 200000
+    
+    def _is_exact_multiple(self, value: int) -> bool:
+        """Check if value is an exact multiple of any known base signature.
+        
+        Args:
+            value: Signature value to check
+            
+        Returns:
+            True if value divides evenly by any known base (with reasonable count)
+        """
+        for base in KNOWN_BASE_SIGNATURES:
+            if value % base == 0:
+                count = value // base
+                if 1 <= count <= 100:  # Reasonable count range
+                    return True
+        return False
+    
+    def _try_correct_signature(self, value: int) -> Optional[int]:
+        """Try to correct an invalid signature by removing phantom digits.
+        
+        OCR sometimes reads comma/period separators as digits:
+        - "7,400" -> "74400" (comma read as 4)
+        - "6.000" -> "60000" (period read as 0)
+        
+        This method tries removing each digit and checks if the result
+        is a valid exact multiple of a known base signature.
+        
+        Args:
+            value: Invalid signature value to correct
+            
+        Returns:
+            Corrected value if found, None otherwise
+        """
+        value_str = str(value)
+        
+        # Only try correction for values that are "too large" (5+ digits)
+        # Phantom digit insertion makes 4-digit numbers into 5-digit
+        if len(value_str) < 5:
+            return None
+        
+        # Try removing each digit position
+        candidates = []
+        for i in range(len(value_str)):
+            corrected_str = value_str[:i] + value_str[i+1:]
+            if corrected_str and corrected_str[0] != '0':  # No leading zeros
+                try:
+                    corrected = int(corrected_str)
+                    if self._is_valid_signature(corrected) and self._is_exact_multiple(corrected):
+                        candidates.append(corrected)
+                except ValueError:
+                    pass
+        
+        if candidates:
+            # Prefer candidate with lowest count (more realistic)
+            # e.g., 7400 = 4× M-type (1850) is more likely than 7440 = 62× small ground (120)
+            def min_count(v):
+                counts = [v // b for b in KNOWN_BASE_SIGNATURES if v % b == 0 and 1 <= v // b <= 100]
+                return min(counts) if counts else 999
+            
+            best = min(candidates, key=min_count)
+            if self.debug_mode:
+                print(f"[DEBUG] Corrected {value} -> candidates: {candidates} -> best: {best} (count={min_count(best)})")
+            return best
+        
+        return None
     
     def match_signature(self, signature: int) -> List[Dict[str, Any]]:
         """Match a signature value to possible targets, including estimated values."""

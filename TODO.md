@@ -1,6 +1,6 @@
 # SC Signature Scanner - Status
 
-## Application Version: 3.0.0
+## Application Version: 3.1.1
 ## Database Version: 4.5 (for Star Citizen 4.5)
 ## OCR Engine: EasyOCR (deep learning)
 
@@ -74,7 +74,13 @@ ROC or FPS mining. 100% single mineral per cluster.
 
 ## In Progress
 - [ ] Testing on fresh install
-- [ ] Version control setup (GitHub)
+
+## Completed Recently
+- [x] Version control setup (GitHub) - v3.0.0 pushed
+- [x] Morphological filtering for OCR (removes commas/periods before scan)
+- [x] Startup splash screen with loading status
+- [x] Fixed overlay Tkinter crash (tuple pady)
+- [x] Fixed NameError crash when easyocr import fails (type hint used `easyocr.Reader`)
 
 ## Known Issues
 - None currently identified
