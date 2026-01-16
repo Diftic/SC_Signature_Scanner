@@ -3,7 +3,7 @@
 **Project:** SC Signature Scanner  
 **Location:** `C:\Users\larse\PycharmProjects\AREA52\SC_Signature_Scanner\`  
 **Developer:** Mallachi  
-**Current Version:** v3.1.1  
+**Current Version:** v3.1.2  
 **Development Period:** January 8-14, 2026
 
 ---
@@ -362,6 +362,19 @@ First OCR use:
 
 ## Version History
 
+### v3.1.2 (January 16, 2026)
+*Scipy bundling fix for PyInstaller*
+
+- **FIX:** Removed scipy excludes from PyInstaller spec - partial scipy exclusion breaks C extension imports
+- **ROOT CAUSE:** EasyOCR requires scipy.ndimage, but excluding other scipy modules broke the shared binary loader
+- **NOTE:** Build size will increase ~50-100MB but scipy now works correctly in frozen builds
+
+### v3.1.1 (January 16, 2026)
+*EasyOCR type hint fix*
+
+- **FIX:** Changed type hints from `easyocr.Reader` to `Any` in scanner.py
+- **ROOT CAUSE:** Type hints evaluate at class definition time; if import fails, the type hint crashes
+
 ### v3.0.0 (January 14, 2026)
 *Regolith API integration complete - Ready for testing*
 
@@ -444,6 +457,7 @@ First OCR use:
 | Prefer lowest count in correction | 7400 = 4× M-type is more realistic than 7440 = 62× small ground deposit |
 | Startup splash screen | Torch/EasyOCR takes 15-20s to load; users need visual feedback that app is working |
 | Use `Any` for easyocr type hints | Type hints evaluate at class definition; if import fails, `easyocr.Reader` crashes |
+| Full scipy bundling over partial | Excluding scipy submodules breaks C extension loader; ~50-100MB size increase is acceptable for reliability |
 
 ---
 
@@ -482,7 +496,7 @@ First OCR use:
 
 ## Current Status / Next Steps
 
-**Status:** v3.1.1 - Tester bug fix
+**Status:** v3.1.2 - Scipy bundling fix
 
 **Immediate priorities:**
 1. ~~Fix About tab background color issue~~ ✓ (completed Jan 14)
@@ -505,6 +519,13 @@ First OCR use:
 - None
 
 **Ready for:** Fresh install testing, distribution to testers
+
+**Session Log - January 16, 2026 (Session 9):**
+- **BUG REPORT:** Tester error: `scipy install seems to be broken (extension modules cannot be imported)`
+- **ROOT CAUSE:** PyInstaller spec excluded scipy modules to reduce build size, but partial exclusion breaks scipy's shared C extension loader
+- **FIX:** Removed scipy excludes from SC_Signature_Scanner.spec - full scipy now bundled
+- **TRADE-OFF:** Build size increases ~50-100MB, but scipy works correctly
+- Bumped version to v3.1.2
 
 **Session Log - January 16, 2026 (Session 8):**
 - **BUG REPORT:** Tester crash on startup: `NameError: name 'easyocr' is not defined`
@@ -660,4 +681,4 @@ SC_Signature_Scanner/
 ---
 
 *Document generated: January 12, 2026*  
-*Last updated: January 16, 2026 - v3.1.1 easyocr type hint fix*
+*Last updated: January 16, 2026 - v3.1.2 scipy bundling fix*

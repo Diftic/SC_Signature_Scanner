@@ -17,11 +17,11 @@ except ImportError:
 
 
 # Current version - update this with each release
-CURRENT_VERSION = "3.1.1"
+CURRENT_VERSION = "3.1.2"
 
 # GitHub repository info - UPDATE THESE when repo is created
-GITHUB_OWNER = "OWNER"  # TODO: Set your GitHub username
-GITHUB_REPO = "SC_Signature_Scanner"  # TODO: Set your repo name
+GITHUB_OWNER = "Diftic"
+GITHUB_REPO = "SC_Signature_Scanner"
 
 # GitHub API URL for latest release
 RELEASES_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"

@@ -121,15 +121,8 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
-        # Exclude unnecessary scipy modules
-        'scipy.spatial',
-        'scipy.optimize', 
-        'scipy.integrate',
-        'scipy.interpolate',
-        'scipy.linalg',
-        'scipy.signal',
-        'scipy.sparse',
-        'scipy.stats',
+        # Note: scipy must NOT be excluded - EasyOCR requires scipy.ndimage
+        # and partial scipy bundling breaks the C extensions
         # Exclude dev tools
         'IPython',
         'jupyter',

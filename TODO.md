@@ -1,6 +1,6 @@
 # SC Signature Scanner - Status
 
-## Application Version: 3.1.1
+## Application Version: 3.1.2
 ## Database Version: 4.5 (for Star Citizen 4.5)
 ## OCR Engine: EasyOCR (deep learning)
 
