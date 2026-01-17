@@ -96,9 +96,20 @@ def clean(include_ocr_models: bool = False):
                 print(f"  Cleared: {custom_path} ({file_count} items)")
                 removed += 1
     
+    # ===== Build Artifacts =====
+    print("\n[Build Artifacts]")
+
+    build_dir = root / "build"
+    if build_dir.exists():
+        shutil.rmtree(build_dir)
+        print(f"  Removed: build/")
+        removed += 1
+    else:
+        print("  (none found)")
+
     # ===== User Config Files =====
     print("\n[User Config]")
-    
+
     config_files = [
         ("scan_region.json", "Scan region config"),
         ("config.json", "Settings + API key"),
@@ -213,6 +224,7 @@ def main():
         print("Removes:")
         print("  - __pycache__ directories and .pyc/.pyo files")
         print("  - Debug output folders")
+        print("  - Build artifacts (build/ folder)")
         print("  - User config files (scan_region.json, config.json)")
         print("  - Data cache files (rock_types.json, uex_prices.json)")
         print("  - Deprecated source and config files")

@@ -1530,14 +1530,46 @@ class SCSignatureScannerApp:
     
     def _check_for_updates(self):
         """Check for updates in background thread."""
+        self._update_check_result = None
+        self._update_check_done = False
+
         def check():
-            update_available, latest_version, download_url = version_checker.check_for_updates()
-            
-            if update_available:
-                self.root.after(0, lambda: self._show_update_notification(latest_version, download_url))
-        
-        thread = threading.Thread(target=check, daemon=True)
-        thread.start()
+            try:
+                self._update_check_result = version_checker.check_for_updates()
+            except Exception as e:
+                self._update_check_result = (False, None, None, str(e))
+            self._update_check_done = True
+
+        threading.Thread(target=check, daemon=True).start()
+
+        # Poll for result from main thread
+        self.root.after(500, self._poll_update_result)
+
+    def _poll_update_result(self):
+        """Poll for update check result from main thread."""
+        if not self._update_check_done:
+            # Keep polling
+            self.root.after(200, self._poll_update_result)
+            return
+
+        result = self._update_check_result
+        if result is None:
+            self._log("⚠ Version check: no result")
+            return
+
+        # Check if error (4-tuple)
+        if len(result) == 4:
+            self._log(f"⚠ Version check failed: {result[3]}")
+            return
+
+        update_available, latest_version, download_url = result
+
+        if update_available:
+            self._show_update_notification(latest_version, download_url)
+        elif latest_version:
+            self._log(f"✓ Version check: up to date (v{self.VERSION})")
+        else:
+            self._log("⚠ Version check: could not reach GitHub")
     
     def _show_update_notification(self, latest_version: str, download_url: str):
         """Show update available dialog with options."""
@@ -1597,9 +1629,11 @@ class SCSignatureScannerApp:
 
         def exit_and_download():
             import webbrowser
+            import sys
             webbrowser.open(download_url)
             dialog.destroy()
-            self.root.quit()
+            self.root.destroy()
+            sys.exit(0)
 
         def continue_old():
             dialog.destroy()
@@ -1621,7 +1655,7 @@ class SCSignatureScannerApp:
         tk.Button(
             btn_frame,
             text="Continue on old version",
-            bg=colors['bg_card'],
+            bg=colors['bg_light'],
             fg=colors['text_primary'],
             font=('Segoe UI', 10),
             relief='flat',
