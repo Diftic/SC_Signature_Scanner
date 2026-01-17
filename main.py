@@ -1629,11 +1629,14 @@ class SCSignatureScannerApp:
 
         def exit_and_download():
             import webbrowser
-            import sys
+            import os
             webbrowser.open(download_url)
             dialog.destroy()
-            self.root.destroy()
-            sys.exit(0)
+            try:
+                self.root.destroy()
+            except:
+                pass
+            os._exit(0)  # Force exit without cleanup to avoid tkinter errors
 
         def continue_old():
             dialog.destroy()

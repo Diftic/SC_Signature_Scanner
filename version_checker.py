@@ -17,7 +17,7 @@ except ImportError:
 
 
 # Current version - update this with each release
-CURRENT_VERSION = "3.1.6"
+CURRENT_VERSION = "3.1.7"
 
 # GitHub repository info - UPDATE THESE when repo is created
 GITHUB_OWNER = "Diftic"
