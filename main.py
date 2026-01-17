@@ -66,7 +66,7 @@ _splash.pump(5)
 from monitor import ScreenshotMonitor
 _splash.pump(5)
 from config import Config
-from theme import RegolithTheme, WarningBanner, StatusIndicator
+from theme import RegolithTheme, WarningBanner, UpdateBanner, StatusIndicator
 _splash.pump(10)
 
 _splash.set_status("Loading pricing data...")
@@ -172,9 +172,13 @@ class SCSignatureScannerApp:
         accent_line.pack(fill=tk.X, pady=(12, 0))
         
         # Warning banner
-        warning = WarningBanner(main_container, "Requires Windowed or Borderless Windowed mode")
-        warning.pack(fill=tk.X, padx=15, pady=10)
-        
+        self.warning_banner = WarningBanner(main_container, "Requires Windowed or Borderless Windowed mode")
+        self.warning_banner.pack(fill=tk.X, padx=15, pady=10)
+
+        # Update banner (created dynamically when update available)
+        self.update_banner_container = main_container
+        self.update_banner = None
+
         # === Notebook (Tabs) ===
         notebook = ttk.Notebook(main_container)
         notebook.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
@@ -1536,22 +1540,110 @@ class SCSignatureScannerApp:
         thread.start()
     
     def _show_update_notification(self, latest_version: str, download_url: str):
-        """Show update available notification."""
+        """Show update available dialog with options."""
         self._log(f"")
         self._log(f"🔔 UPDATE AVAILABLE: v{latest_version}")
         self._log(f"   Current: v{self.VERSION}")
-        self._log(f"   Download from GitHub releases")
         self._log(f"")
-        
-        if messagebox.askyesno(
-            "Update Available",
-            f"A new version is available!\n\n"
-            f"Current: v{self.VERSION}\n"
-            f"Latest: v{latest_version}\n\n"
-            f"Would you like to open the download page?"
-        ):
+
+        # Create custom dialog
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Update Available")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.resizable(False, False)
+
+        # Center on parent
+        dialog.geometry("400x180")
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() - 400) // 2
+        y = self.root.winfo_y() + (self.root.winfo_height() - 180) // 2
+        dialog.geometry(f"+{x}+{y}")
+
+        colors = RegolithTheme.COLORS
+        dialog.configure(bg=colors['bg_main'])
+
+        # Content
+        content = tk.Frame(dialog, bg=colors['bg_main'], padx=20, pady=20)
+        content.pack(fill=tk.BOTH, expand=True)
+
+        # Icon and message
+        tk.Label(
+            content,
+            text="🔔",
+            bg=colors['bg_main'],
+            font=('Segoe UI', 24)
+        ).pack()
+
+        tk.Label(
+            content,
+            text=f"A new version is available!",
+            bg=colors['bg_main'],
+            fg=colors['text_primary'],
+            font=('Segoe UI', 12, 'bold')
+        ).pack(pady=(5, 2))
+
+        tk.Label(
+            content,
+            text=f"Current: v{self.VERSION}  →  Latest: v{latest_version}",
+            bg=colors['bg_main'],
+            fg=colors['text_muted'],
+            font=('Segoe UI', 10)
+        ).pack(pady=(0, 15))
+
+        # Buttons
+        btn_frame = tk.Frame(content, bg=colors['bg_main'])
+        btn_frame.pack()
+
+        def exit_and_download():
             import webbrowser
             webbrowser.open(download_url)
+            dialog.destroy()
+            self.root.quit()
+
+        def continue_old():
+            dialog.destroy()
+            self._show_update_banner(latest_version, download_url)
+
+        tk.Button(
+            btn_frame,
+            text="Exit and Download",
+            bg=colors['accent_primary'],
+            fg='#000000',
+            font=('Segoe UI', 10, 'bold'),
+            relief='flat',
+            padx=15,
+            pady=5,
+            cursor='hand2',
+            command=exit_and_download
+        ).pack(side=tk.LEFT, padx=(0, 10))
+
+        tk.Button(
+            btn_frame,
+            text="Continue on old version",
+            bg=colors['bg_card'],
+            fg=colors['text_primary'],
+            font=('Segoe UI', 10),
+            relief='flat',
+            padx=15,
+            pady=5,
+            cursor='hand2',
+            command=continue_old
+        ).pack(side=tk.LEFT)
+
+        # Handle window close as "continue"
+        dialog.protocol("WM_DELETE_WINDOW", continue_old)
+
+    def _show_update_banner(self, version: str, download_url: str):
+        """Show the update banner in the UI."""
+        if self.update_banner is None:
+            self.update_banner = UpdateBanner(
+                self.update_banner_container,
+                version,
+                download_url
+            )
+            # Pack after warning banner
+            self.update_banner.pack(fill=tk.X, padx=15, pady=(0, 10), after=self.warning_banner)
     
     def _refresh_pricing(self):
         """Refresh pricing data from UEX API."""

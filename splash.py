@@ -48,27 +48,17 @@ class SplashScreen:
         top_row = tk.Frame(inner, bg=self.BG_COLOR)
         top_row.pack(fill=tk.X, pady=(0, 5))
 
-        # Spinning radar icon
+        # Radar icon
         self.radar_frames = ["📡", "📡 ·", "📡 · ·", "📡 · · ·", "📡 · ·", "📡 ·"]
         self.radar_label = tk.Label(
             top_row,
             text="📡",
-            font=("Segoe UI", 18),
+            font=("Segoe UI", 27),
             bg=self.BG_COLOR
         )
         self.radar_label.pack(side=tk.LEFT)
 
-        # Activity dots on the right
-        self.activity_label = tk.Label(
-            top_row,
-            text="",
-            font=("Consolas", 10),
-            fg=self.SCAN_COLOR,
-            bg=self.BG_COLOR
-        )
-        self.activity_label.pack(side=tk.RIGHT)
-
-        # Title with glitch effect
+        # Title (static)
         self.title = tk.Label(
             inner,
             text="SC Signature Scanner",
@@ -89,10 +79,10 @@ class SplashScreen:
         )
         self.subtitle.pack(pady=(0, 8))
 
-        # Status message with blinking cursor
+        # Status message
         self.status_label = tk.Label(
             inner,
-            text="Starting... █",
+            text="Starting...",
             font=("Segoe UI", 10),
             fg=self.TEXT_COLOR,
             bg=self.BG_COLOR
@@ -136,21 +126,14 @@ class SplashScreen:
         self.frame = 0
         self.progress_pos = 0
         self.progress_dir = 1
-        self.pulse_val = 0
-        self.border_pulse = 0
         self.typing_pos = 0
-        self.cursor_visible = True
         self._after_ids = []
         self._status_text = "Starting..."
 
-        # Start all animations
+        # Start animations
         self._animate_scan()
-        self._animate_pulse()
-        self._animate_border()
         self._animate_radar()
-        self._animate_activity()
         self._animate_typing()
-        self._animate_cursor()
         self._animate_progress()
         self._animate_data()
 
@@ -186,40 +169,11 @@ class SplashScreen:
         self.frame += 1
         self._after_ids.append(self.root.after(40, self._animate_scan))
 
-    def _animate_pulse(self):
-        """Animate title pulse/glitch effect."""
-        colors = [self.ACCENT_DIM, self.ACCENT_COLOR, self.ACCENT_BRIGHT, self.ACCENT_GLOW, self.ACCENT_BRIGHT, self.ACCENT_COLOR]
-        self.pulse_val = (self.pulse_val + 1) % len(colors)
-        self.title.config(fg=colors[self.pulse_val])
-
-        # Occasional glitch
-        if random.random() < 0.05:
-            glitch_text = "SC S1gn4tur3 Sc4nn3r"
-            self.title.config(text=glitch_text)
-            self.root.after(50, lambda: self.title.config(text="SC Signature Scanner"))
-
-        self._after_ids.append(self.root.after(120, self._animate_pulse))
-
-    def _animate_border(self):
-        """Animate border color pulse."""
-        border_colors = [self.ACCENT_COLOR, self.ACCENT_BRIGHT, self.ACCENT_GLOW, self.ACCENT_BRIGHT]
-        self.border_pulse = (self.border_pulse + 1) % len(border_colors)
-        self.border.config(bg=border_colors[self.border_pulse])
-        self._after_ids.append(self.root.after(150, self._animate_border))
-
     def _animate_radar(self):
         """Animate radar with signal pulses."""
         idx = (self.frame // 3) % len(self.radar_frames)
         self.radar_label.config(text=self.radar_frames[idx])
         self._after_ids.append(self.root.after(100, self._animate_radar))
-
-    def _animate_activity(self):
-        """Animate activity indicator."""
-        num_dots = random.randint(3, 8)
-        dots = "".join(random.choice(["·", "•", "○", "●"]) for _ in range(num_dots))
-        color = random.choice([self.SCAN_COLOR, self.ACCENT_COLOR, self.TEXT_COLOR])
-        self.activity_label.config(text=dots, fg=color)
-        self._after_ids.append(self.root.after(80, self._animate_activity))
 
     def _animate_typing(self):
         """Type out subtitle text."""
@@ -229,13 +183,6 @@ class SplashScreen:
             self._after_ids.append(self.root.after(60, self._animate_typing))
         else:
             self.subtitle.config(text=self.subtitle_text)
-
-    def _animate_cursor(self):
-        """Blink cursor on status."""
-        self.cursor_visible = not self.cursor_visible
-        cursor = " █" if self.cursor_visible else "  "
-        self.status_label.config(text=self._status_text + cursor)
-        self._after_ids.append(self.root.after(400, self._animate_cursor))
 
     def _animate_progress(self):
         """Animate bouncing pixel on progress bar."""
@@ -265,8 +212,7 @@ class SplashScreen:
     def set_status(self, message: str):
         """Update status message and pump event loop for animations."""
         self._status_text = message
-        cursor = " █" if self.cursor_visible else "  "
-        self.status_label.config(text=message + cursor)
+        self.status_label.config(text=message)
         # Pump event loop multiple times to let animations run
         self.pump(15)
 

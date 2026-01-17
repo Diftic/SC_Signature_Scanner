@@ -336,20 +336,20 @@ class RegolithTheme:
         return inner, outer
 
 
-# Banner widget
+# Banner widgets
 class WarningBanner(tk.Frame):
     """Stylized warning banner."""
-    
+
     def __init__(self, parent, text: str, **kwargs):
         super().__init__(parent, bg=RegolithTheme.COLORS['bg_dark'], **kwargs)
-        
+
         # Warning icon and text
         inner = tk.Frame(self, bg='#3d2a00', padx=15, pady=8)
         inner.pack(fill=tk.X, padx=1, pady=1)
-        
+
         # Add border effect
         self.configure(bg='#664400')
-        
+
         label = tk.Label(
             inner,
             text=f"⚠️  {text}",
@@ -358,6 +358,51 @@ class WarningBanner(tk.Frame):
             font=RegolithTheme.FONTS['body']
         )
         label.pack()
+
+
+class UpdateBanner(tk.Frame):
+    """Update available banner with download link."""
+
+    def __init__(self, parent, version: str, download_url: str, **kwargs):
+        super().__init__(parent, bg=RegolithTheme.COLORS['bg_dark'], **kwargs)
+
+        self.download_url = download_url
+
+        # Inner frame with blue/cyan theme for updates
+        inner = tk.Frame(self, bg='#0a2540', padx=15, pady=8)
+        inner.pack(fill=tk.X, padx=1, pady=1)
+
+        # Add border effect (blue)
+        self.configure(bg='#1a85c9')
+
+        # Content frame for text and link
+        content = tk.Frame(inner, bg='#0a2540')
+        content.pack(fill=tk.X)
+
+        label = tk.Label(
+            content,
+            text=f"🔔  Update available: v{version}",
+            bg='#0a2540',
+            fg='#58a6ff',
+            font=RegolithTheme.FONTS['body']
+        )
+        label.pack(side=tk.LEFT)
+
+        link = tk.Label(
+            content,
+            text="[Download]",
+            bg='#0a2540',
+            fg='#58a6ff',
+            font=('Segoe UI', 10, 'underline'),
+            cursor='hand2'
+        )
+        link.pack(side=tk.LEFT, padx=(10, 0))
+        link.bind('<Button-1>', self._open_download)
+
+    def _open_download(self, event=None):
+        """Open download URL in browser."""
+        import webbrowser
+        webbrowser.open(self.download_url)
 
 
 # Status indicator
