@@ -1,5 +1,7 @@
 # SC Signature Scanner
 
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-orange?style=flat&logo=buy-me-a-coffee)](https://buymeacoffee.com/Mallachi)
+
 Real-time signature identification tool for Star Citizen. Monitors your screenshot folder and automatically identifies asteroids, deposits, and salvage targets from in-game signature values.
 
 **Version:** 3.1.1  
