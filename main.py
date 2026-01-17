@@ -31,21 +31,51 @@ from typing import Optional, List, Dict, Any, Tuple
 
 # Path utilities (must be first for frozen exe support)
 import paths
+_splash.pump(10)
 
 _splash.set_status("Loading OCR engine...")
-from scanner import SignatureScanner
+
+# Load OCR in background thread to keep animation running
+_scanner_module = None
+_scanner_error = None
+
+def _load_scanner():
+    global _scanner_module, _scanner_error
+    try:
+        import scanner as _mod
+        _scanner_module = _mod
+    except Exception as e:
+        _scanner_error = e
+
+_loader_thread = threading.Thread(target=_load_scanner)
+_loader_thread.start()
+
+# Keep animation running while loading
+while _loader_thread.is_alive():
+    _splash.pump(5)
+_loader_thread.join()
+
+if _scanner_error:
+    raise _scanner_error
+SignatureScanner = _scanner_module.SignatureScanner
+_splash.pump(10)
 
 _splash.set_status("Loading UI components...")
 from overlay import OverlayPopup, PositionAdjuster
+_splash.pump(5)
 from monitor import ScreenshotMonitor
+_splash.pump(5)
 from config import Config
 from theme import RegolithTheme, WarningBanner, StatusIndicator
+_splash.pump(10)
 
 _splash.set_status("Loading pricing data...")
 import pricing
+_splash.pump(5)
 import version_checker
 import region_selector
 import regolith_api
+_splash.pump(10)
 
 
 class SCSignatureScannerApp:
@@ -1122,6 +1152,47 @@ class SCSignatureScannerApp:
                 anchor=tk.W
             )
             desc_label.pack(side=tk.LEFT, fill=tk.X)
+        
+        # Buy Me a Coffee section (below Signature Types in right column)
+        coffee_section = tk.Frame(right_col, bg=colors['bg_main'])
+        coffee_section.pack(fill=tk.X, pady=(15, 0))
+        
+        coffee_text = tk.Label(
+            coffee_section,
+            text="This is a free piece of software intended to make the life of miners a\nlittle bit easier. If you like it and appreciate the work put into it,\nplease consider buying me a cup of coffee to feed my addiction.",
+            bg=colors['bg_main'],
+            fg=colors['text_muted'],
+            font=fonts['small'],
+            justify=tk.LEFT
+        )
+        coffee_text.pack(anchor=tk.W, pady=(0, 10), padx=(40, 0))
+        
+        def open_coffee():
+            import webbrowser
+            webbrowser.open("https://buymeacoffee.com/Mallachi")
+        
+        coffee_btn = tk.Button(
+            coffee_section,
+            text="\u2615  Buy Me a Coffee",
+            bg='#FFDD00',
+            fg='#000000',
+            font=('Segoe UI', 12, 'bold'),
+            relief='flat',
+            padx=25,
+            pady=10,
+            cursor='hand2',
+            command=open_coffee
+        )
+        coffee_btn.pack(anchor=tk.W, pady=(0, 8), padx=(100, 0))
+        
+        coffee_thanks = tk.Label(
+            coffee_section,
+            text="Thank you for your support.     -Mallachi",
+            bg=colors['bg_main'],
+            fg=colors['text_muted'],
+            font=fonts['small']
+        )
+        coffee_thanks.pack(anchor=tk.W, padx=(100, 0))
     
     def _browse_folder(self):
         """Open folder browser dialog."""

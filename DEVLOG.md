@@ -520,6 +520,14 @@ First OCR use:
 
 **Ready for:** Fresh install testing, distribution to testers
 
+**Session Log - January 17, 2026 (Session 10):**
+- **FEATURE:** Added "Buy Me a Coffee" button to About tab
+- Position: Below Signature Types in right column
+- Includes flavor text explaining the software is free and inviting support
+- Links to buymeacoffee.com/Mallachi
+- Yellow button (#FFDD00) with coffee emoji, wider styling
+- No version bump (v3.1.2 not yet released to testers)
+
 **Session Log - January 16, 2026 (Session 9):**
 - **BUG REPORT:** Tester error: `scipy install seems to be broken (extension modules cannot be imported)`
 - **ROOT CAUSE:** PyInstaller spec excluded scipy modules to reduce build size, but partial exclusion breaks scipy's shared C extension loader
@@ -681,4 +689,4 @@ SC_Signature_Scanner/
 ---
 
 *Document generated: January 12, 2026*  
-*Last updated: January 16, 2026 - v3.1.2 scipy bundling fix*
+*Last updated: January 17, 2026 - v3.1.2 added Buy Me a Coffee button*
