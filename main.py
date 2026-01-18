@@ -1069,7 +1069,7 @@ class SCSignatureScannerApp:
         
         thanks_text = tk.Label(
             thanks_inner,
-            text="Thank you to those whom participated\n in the building and testing process\n  * Raychaser - Regolith.Rocks\n  * iambass - Testing crew",
+            text="Thank you to those who participated\n in the building and testing process\n  - Raychaser - Regolith.Rocks\n  - iambass - Test crew\n  - Mavyre  - Test crew",
             bg=colors['bg_light'],
             fg=colors['text_secondary'],
             font=fonts['small'],

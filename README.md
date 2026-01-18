@@ -4,17 +4,41 @@
 
 Real-time signature identification tool for Star Citizen. Monitors your screenshot folder and automatically identifies asteroids, deposits, and salvage targets from in-game signature values.
 
-**Version:** 3.1.1  
+**Version:** 3.1.8  
 **Author:** Mallachi
 
 ## Features
 
-- 🔍 **Automatic OCR** — Extracts signature values from screenshots using deep learning
-- 💎 **Mining Identification** — Asteroids, surface deposits, ground deposits (FPS/ROC)
-- 🔧 **Salvage Detection** — Hull panel count estimation
-- 💰 **Live Pricing** — Estimated values using real-time UEX ore prices
-- 📊 **Mineral Composition** — Shows probable mineral spawns and their values
-- 🎯 **Overlay Popup** — Non-intrusive results display over the game
+### Core Scanning
+- **Automatic OCR** — Extracts signature values from screenshots using EasyOCR deep learning
+- **Mining Identification** — Identifies asteroids (I/C/S/P/M/Q/E-type), surface deposits, and ground deposits (FPS/ROC)
+- **Salvage Detection** — Hull panel count estimation from salvage signatures
+- **Configurable Scan Region** — Define exactly where signatures appear on your screen for faster, more accurate detection
+
+### Data & Pricing
+- **Live Pricing** — Real-time ore values from UEX Corp API
+- **Mineral Composition** — Probable mineral spawns and their values via Regolith.rocks API
+- **Multiple Refinery Methods** — 9 refinery yield options (Dinyx, Ferron, Cormack, etc.) for accurate value estimates
+- **Automatic Data Caching** — Caches API data locally for offline use and faster startups
+
+### Overlay Display
+- **In-Game Overlay Popup** — Non-intrusive results display over the game
+- **Customizable Position** — Drag-to-position overlay anywhere on screen
+- **Adjustable Scale** — 50% to 200% size scaling
+- **Configurable Duration** — 1-30 seconds display time
+
+### Monitoring & Workflow
+- **Folder Monitoring** — Automatically detects new screenshots in your SC screenshot folder
+- **Test Screenshot** — Manually test OCR on any image file
+- **Detection Log** — Timestamped log of all scans and results
+- **Screenshot Counter** — Tracks screenshots processed per session
+
+### Quality of Life
+- **Automatic Updates** — Checks for new versions on startup with one-click download
+- **Debug Mode** — Saves OCR processing images for troubleshooting
+- **Custom Debug Folder** — Choose where debug images are saved
+- **Test Popup** — Preview overlay appearance with sample data
+- **Splash Screen** — Loading progress display during startup
 
 ## Requirements
 
@@ -178,4 +202,6 @@ SC_Signature_Scanner/
 
 ## License
 
-For personal use with Star Citizen. Not affiliated with CIG or RSI.
+MIT License - Free to use, modify, and distribute. See [LICENSE](LICENSE) for details.
+
+Not affiliated with Cloud Imperium Games or Roberts Space Industries.
