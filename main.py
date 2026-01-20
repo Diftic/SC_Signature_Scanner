@@ -647,29 +647,30 @@ class SCSignatureScannerApp:
         )
         method_desc.pack(anchor=tk.W, pady=(0, 6))
         
-        # Refinery methods with yields
+        # Refinery methods with yields (sorted by yield, high to low)
+        # Format: 'Name (Yield X% - Speed = Y - Price = Z)': yield_value
         self.refinery_methods = {
-            'Dinyx Solventation (52.93%)': 0.5293,
-            'Ferron Exchange (52.93%)': 0.5293,
-            'Pyrometric Chromalysis (52.93%)': 0.5293,
-            'Electrostarolysis (45%)': 0.45,
-            'Gaskin Process (45%)': 0.45,
-            'Thermonatic Deposition (45%)': 0.45,
-            'Cormack (37.05%)': 0.3705,
-            'Kazen Winnowing (37.05%)': 0.3705,
-            'XCR Reaction (37.05%)': 0.3705,
+            'Dinyx Solventation (Yield 52.93% - Speed: Slowest - Price: Low$)': 0.5293,
+            'Ferron Exchange (Yield 52.93% - Speed: Slow - Price: Med$$)': 0.5293,
+            'Pyrometric Chromalysis (Yield 52.93% - Speed: Med - Price: High$$$)': 0.5293,
+            'Thermonatic Deposition (Yield 45% - Speed: Slow - Price: Low$)': 0.45,
+            'Electrostarolysis (Yield 45% - Speed: Med - Price: Med$$)': 0.45,
+            'Gaskin Process (Yield 45% - Speed: Fast - Price: High$$$)': 0.45,
+            'Kazen Winnowing (Yield 37.05% - Speed: Med - Price: Low$)': 0.3705,
+            'Cormack (Yield 37.05% - Speed: Fast - Price: Med$$)': 0.3705,
+            'XCR Reaction (Yield 37.05% - Speed: Fastest - Price: High$$$)': 0.3705,
         }
         
         method_row = tk.Frame(method_inner, bg=colors['bg_light'])
         method_row.pack(fill=tk.X)
         
-        self.method_var = tk.StringVar(value='Dinyx Solventation (52.93%)')
+        self.method_var = tk.StringVar(value='Dinyx Solventation (Yield 52.93% - Speed: Slowest - Price: Low$)')
         method_combo = ttk.Combobox(
             method_row,
             textvariable=self.method_var,
             values=list(self.refinery_methods.keys()),
             state='readonly',
-            width=28,
+            width=62,
             font=fonts['body']
         )
         method_combo.pack(side=tk.LEFT)
@@ -1405,8 +1406,39 @@ class SCSignatureScannerApp:
             scale=self.scale_var.get()
         )
         
-        # Test data for E-type asteroid
+        # Test data for E-type asteroid with live UEX prices
         test_signature = 1900
+
+        # Get current prices from pricing manager
+        price_mgr = pricing.get_pricing_manager()
+
+        # Build composition with live prices
+        test_ores = [
+            ('Quantanium', 0.05, 0.30),
+            ('Taranite', 0.10, 0.31),
+            ('Bexalite', 0.12, 0.30),
+            ('Gold', 0.29, 0.31),
+            ('Beryl', 0.39, 0.42),
+            ('Tungsten', 0.18, 0.46),
+            ('Titanium', 0.12, 0.49),
+            ('Quartz', 0.13, 0.48),
+        ]
+
+        composition = []
+        total_value = 0
+        for name, prob, med_pct in test_ores:
+            ore_price = price_mgr.get_ore_price(name)
+            # Estimate value based on typical rock mass (~5000kg)
+            est_value = int(ore_price * prob * med_pct * 0.5)  # Simplified estimate
+            total_value += est_value
+            composition.append({
+                'name': name,
+                'prob': prob,
+                'medPct': med_pct,
+                'value': est_value,
+                'price': ore_price
+            })
+
         test_matches = [{
             'type': 'known',
             'name': 'E-type Asteroid',
@@ -1414,17 +1446,8 @@ class SCSignatureScannerApp:
             'rock_type': 'ETYPE',
             'signature': 1900,
             'confidence': 1.0,
-            'est_value': 67000,
-            'composition': [
-                {'name': 'Quantanium', 'prob': 0.05, 'medPct': 0.30, 'value': 117000, 'price': 88},
-                {'name': 'Taranite', 'prob': 0.10, 'medPct': 0.31, 'value': 59000, 'price': 61},
-                {'name': 'Bexalite', 'prob': 0.12, 'medPct': 0.30, 'value': 76000, 'price': 44},
-                {'name': 'Gold', 'prob': 0.29, 'medPct': 0.31, 'value': 11000, 'price': 7},
-                {'name': 'Beryl', 'prob': 0.39, 'medPct': 0.42, 'value': 69000, 'price': 4},
-                {'name': 'Tungsten', 'prob': 0.18, 'medPct': 0.46, 'value': 5000, 'price': 4},
-                {'name': 'Titanium', 'prob': 0.12, 'medPct': 0.49, 'value': 21000, 'price': 8},
-                {'name': 'Quartz', 'prob': 0.13, 'medPct': 0.48, 'value': 30000, 'price': 2},
-            ]
+            'est_value': total_value,
+            'composition': composition
         }]
         
         self._test_overlay.show(test_signature, test_matches)
@@ -1883,7 +1906,7 @@ class SCSignatureScannerApp:
             self.debug_var.set(cfg.get('debug_mode', False))
             
             # Load refinery method
-            saved_method = cfg.get('refinery_method', 'Dinyx Solventation (52.93%)')
+            saved_method = cfg.get('refinery_method', 'Dinyx Solventation (Yield 52.93% - Speed: Slowest - Price: Low$)')
             if saved_method in self.refinery_methods:
                 self.method_var.set(saved_method)
             

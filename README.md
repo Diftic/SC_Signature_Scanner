@@ -40,6 +40,14 @@ Real-time signature identification tool for Star Citizen. Monitors your screensh
 - **Test Popup** — Preview overlay appearance with sample data
 - **Splash Screen** — Loading progress display during startup
 
+## Screenshots
+
+<img src="images/main_window.png" width="600" alt="Main Scanner Window">
+
+<img src="images/overlay_popup.png" width="400" alt="Overlay Popup">
+
+<img src="images/settings.png" width="600" alt="Settings Tab">
+
 ## Requirements
 
 - **Windows 10/11**

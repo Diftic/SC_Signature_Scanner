@@ -212,15 +212,15 @@ class RegolithTheme:
             borderwidth=0,
             tabmargins=[0, 0, 0, 0]
         )
-        
+
         style.configure(
             'TNotebook.Tab',
             background=cls.COLORS['bg_light'],
-            foreground=cls.COLORS['text_secondary'],
-            padding=[20, 10],
-            font=cls.FONTS['body']
+            foreground=cls.COLORS['text_muted'],
+            padding=[20, 8],
+            font=cls.FONTS['small']  # Smaller font for unselected tabs
         )
-        
+
         style.map(
             'TNotebook.Tab',
             background=[
@@ -230,6 +230,12 @@ class RegolithTheme:
             foreground=[
                 ('selected', cls.COLORS['accent_primary']),
                 ('active', cls.COLORS['text_primary'])
+            ],
+            font=[
+                ('selected', cls.FONTS['subheading']),  # Larger bold font for selected tab
+            ],
+            padding=[
+                ('selected', [20, 10]),  # More padding for selected tab
             ]
         )
         

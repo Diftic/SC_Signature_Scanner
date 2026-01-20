@@ -3,7 +3,7 @@
 **Project:** SC Signature Scanner  
 **Location:** `C:\Users\larse\PycharmProjects\AREA52\SC_Signature_Scanner\`  
 **Developer:** Mallachi  
-**Current Version:** v3.1.7  
+**Current Version:** v3.2.0  
 **Development Period:** January 8-14, 2026
 
 ---
@@ -362,6 +362,15 @@ First OCR use:
 
 ## Version History
 
+### v3.2.0 (January 20, 2026)
+*UI improvements for refinery methods and tab styling*
+
+- **IMPROVE:** Refinery method dropdown now shows yield, speed, and cost info
+- Format: `Dinyx Solventation (Yield 52.93% - Speed: Slowest - Price: Low$)`
+- **IMPROVE:** Tab styling - selected tab now larger and bolder than unselected tabs
+- Selected: 11pt bold with accent color; Unselected: 9pt regular with muted color
+- **DOCS:** Updated claude.md with Regolith API refinery method documentation
+
 ### v3.1.2 (January 16, 2026)
 *Scipy bundling fix for PyInstaller*
 
@@ -496,7 +505,7 @@ First OCR use:
 
 ## Current Status / Next Steps
 
-**Status:** v3.1.2 - Scipy bundling fix
+**Status:** v3.2.0 - UI improvements for refinery methods and tab styling
 
 **Immediate priorities:**
 1. ~~Fix About tab background color issue~~ ✓ (completed Jan 14)
@@ -519,6 +528,18 @@ First OCR use:
 - None
 
 **Ready for:** Fresh install testing, distribution to testers
+
+**Session Log - January 20, 2026 (Session 11):**
+- **IMPROVE:** Refinery method dropdown now displays yield, speed, and cost information
+- Old format: `Dinyx Solventation (52.93%)`
+- New format: `Dinyx Solventation (Yield 52.93% - Speed: Slowest - Price: Low$)`
+- Widened combobox from 28 to 62 characters to fit new format
+- **IMPROVE:** Tab styling updated - selected tab now visually larger than unselected
+- Unselected tabs: 9pt font, muted color, less padding
+- Selected tab: 11pt bold font, accent color, more padding
+- **DOCS:** Reviewed and verified claude.md refinery method data against web sources
+- Confirmed yield tiers, speed categories, and cost multipliers are accurate
+- **VERSION:** Bumped to v3.2.0
 
 **Session Log - January 17, 2026 (Session 10):**
 - **FEATURE:** Added "Buy Me a Coffee" button to About tab
@@ -689,4 +710,4 @@ SC_Signature_Scanner/
 ---
 
 *Document generated: January 12, 2026*  
-*Last updated: January 17, 2026 - v3.1.2 added Buy Me a Coffee button*
+*Last updated: January 20, 2026 - v3.2.0 UI improvements for refinery methods and tab styling*

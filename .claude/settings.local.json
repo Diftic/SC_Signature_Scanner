@@ -1,7 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:api.github.com)"
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:regolith.rocks)",
+      "WebSearch",
+      "WebFetch(domain:starcitizen.tools)",
+      "WebFetch(domain:dutchdemons.com)",
+      "WebFetch(domain:uexcorp.space)",
+      "WebFetch(domain:testsquadron.com)",
+      "WebFetch(domain:sc-trade.tools)",
+      "WebFetch(domain:www.scminingmom.com)",
+      "WebFetch(domain:www.mmopixel.com)",
+      "WebFetch(domain:redmonstergaming.com)",
+      "WebFetch(domain:robertsspaceindustries.com)"
     ]
   }
 }
